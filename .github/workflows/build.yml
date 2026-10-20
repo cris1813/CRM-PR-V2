@@ -1,0 +1,292 @@
+name: Build CRM APK
+
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 1. Descargar codigo del repositorio
+        uses: actions/checkout@v4
+
+      - name: 2. Configurar Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: 3. Instalar Flutter SDK
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+
+      - name: 4. Construir proyecto nativo + AccessibilityService + FileProvider
+        run: |
+          cp lib/main.dart /tmp/main.dart
+          flutter create --org com.cristobal.crm --project-name crm_mayorista_pro .
+          cp /tmp/main.dart lib/main.dart
+
+          flutter pub add url_launcher shared_preferences path_provider http image_picker
+
+          mkdir -p android/app/src/main/res/xml
+
+          cat << 'EOF' > android/app/src/main/res/xml/accessibility_service_config.xml
+          <?xml version="1.0" encoding="utf-8"?>
+          <accessibility-service xmlns:android="http://schemas.android.com/apk/res/android"
+              android:accessibilityEventTypes="typeWindowStateChanged|typeWindowContentChanged"
+              android:accessibilityFeedbackType="feedbackGeneric"
+              android:accessibilityFlags="flagDefault|flagIncludeNotImportantViews|flagReportViewIds"
+              android:canRetrieveWindowContent="true"
+              android:notificationTimeout="100"
+              android:packageNames="com.whatsapp,com.whatsapp.w4b" />
+          EOF
+
+          cat << 'EOF' > android/app/src/main/res/xml/file_paths.xml
+          <?xml version="1.0" encoding="utf-8"?>
+          <paths xmlns:android="http://schemas.android.com/apk/res/android">
+              <cache-path name="cache" path="." />
+              <files-path name="files" path="." />
+              <external-path name="external" path="." />
+          </paths>
+          EOF
+
+          MAIN_KT=$(find android/app/src/main -name "MainActivity.kt")
+          KOTLIN_DIR=$(dirname "$MAIN_KT")
+          PKG_LINE=$(head -n 1 "$MAIN_KT" | tr -d '\r')
+
+          echo "$PKG_LINE" > "$KOTLIN_DIR/WhatsAppAccessibilityService.kt"
+          cat << 'EOF' >> "$KOTLIN_DIR/WhatsAppAccessibilityService.kt"
+
+          import android.accessibilityservice.AccessibilityService
+          import android.os.Handler
+          import android.os.Looper
+          import android.view.accessibility.AccessibilityEvent
+          import android.view.accessibility.AccessibilityNodeInfo
+
+          class WhatsAppAccessibilityService : AccessibilityService() {
+              companion object {
+                  var autoSendActive: Boolean = false
+              }
+
+              override fun onAccessibilityEvent(event: AccessibilityEvent?) {
+                  if (!autoSendActive) return
+                  val rootNode = rootInActiveWindow ?: return
+
+                  val sendNodes = mutableListOf<AccessibilityNodeInfo>()
+                  sendNodes.addAll(rootNode.findAccessibilityNodeInfosByViewId("com.whatsapp:id/send"))
+                  sendNodes.addAll(rootNode.findAccessibilityNodeInfosByViewId("com.whatsapp.w4b:id/send"))
+                  sendNodes.addAll(rootNode.findAccessibilityNodeInfosByText("Enviar"))
+                  sendNodes.addAll(rootNode.findAccessibilityNodeInfosByText("Send"))
+
+                  for (node in sendNodes) {
+                      if (node.isClickable && node.isEnabled) {
+                          autoSendActive = false
+                          Handler(Looper.getMainLooper()).postDelayed({
+                              node.performAction(AccessibilityNodeInfo.ACTION_CLICK)
+                              Handler(Looper.getMainLooper()).postDelayed({
+                                  performGlobalAction(GLOBAL_ACTION_BACK)
+                                  Handler(Looper.getMainLooper()).postDelayed({
+                                      performGlobalAction(GLOBAL_ACTION_BACK)
+                                  }, 600)
+                              }, 800)
+                          }, 650)
+                          break
+                      }
+                  }
+              }
+
+              override fun onInterrupt() {}
+          }
+          EOF
+
+          echo "$PKG_LINE" > "$MAIN_KT"
+          cat << 'EOF' >> "$MAIN_KT"
+
+          import android.content.Intent
+          import android.net.Uri
+          import android.provider.Settings
+          import android.text.TextUtils
+          import androidx.core.content.FileProvider
+          import io.flutter.embedding.android.FlutterActivity
+          import io.flutter.embedding.engine.FlutterEngine
+          import io.flutter.plugin.common.MethodChannel
+          import java.io.File
+
+          class MainActivity: FlutterActivity() {
+              private val CHANNEL = "com.cristobal.crm/accessibility"
+
+              override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
+                  super.configureFlutterEngine(flutterEngine)
+                  MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL).setMethodCallHandler { call, result ->
+                      when (call.method) {
+                          "openAccessibilitySettings" -> {
+                              val intent = Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)
+                              intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                              startActivity(intent)
+                              result.success(true)
+                          }
+                          "armAutoSend" -> {
+                              WhatsAppAccessibilityService.autoSendActive = true
+                              result.success(true)
+                          }
+                          "isServiceEnabled" -> {
+                              result.success(isAccessibilityServiceEnabled())
+                          }
+                          "sendWhatsAppImage" -> {
+                              val phone = call.argument<String>("phone") ?: ""
+                              val text = call.argument<String>("text") ?: ""
+                              val imagePath = call.argument<String>("imagePath") ?: ""
+                              val autoSend = call.argument<Boolean>("autoSend") ?: false
+                              if (autoSend) {
+                                  WhatsAppAccessibilityService.autoSendActive = true
+                              }
+                              sendImageToWhatsApp(phone, text, imagePath)
+                              result.success(true)
+                          }
+                          "shareImageGeneral" -> {
+                              val text = call.argument<String>("text") ?: ""
+                              val imagePath = call.argument<String>("imagePath") ?: ""
+                              shareImageGeneral(text, imagePath)
+                              result.success(true)
+                          }
+                          else -> result.notImplemented()
+                      }
+                  }
+              }
+
+              private fun sendImageToWhatsApp(phone: String, text: String, imagePath: String) {
+                  val file = File(imagePath)
+                  val uri: Uri = FileProvider.getUriForFile(
+                      this,
+                      applicationContext.packageName + ".fileprovider",
+                      file
+                  )
+                  val intent = Intent(Intent.ACTION_SEND)
+                  intent.type = "image/png"
+                  intent.putExtra(Intent.EXTRA_STREAM, uri)
+                  intent.putExtra(Intent.EXTRA_TEXT, text)
+                  intent.putExtra("jid", "$phone@s.whatsapp.net")
+                  intent.setPackage("com.whatsapp")
+                  intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK)
+                  try {
+                      startActivity(intent)
+                  } catch (e: Exception) {
+                      intent.setPackage("com.whatsapp.w4b")
+                      try {
+                          startActivity(intent)
+                      } catch (_: Exception) {}
+                  }
+              }
+
+              private fun shareImageGeneral(text: String, imagePath: String) {
+                  val file = File(imagePath)
+                  val uri: Uri = FileProvider.getUriForFile(
+                      this,
+                      applicationContext.packageName + ".fileprovider",
+                      file
+                  )
+                  val intent = Intent(Intent.ACTION_SEND)
+                  intent.type = "image/png"
+                  intent.putExtra(Intent.EXTRA_STREAM, uri)
+                  intent.putExtra(Intent.EXTRA_TEXT, text)
+                  intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                  startActivity(Intent.createChooser(intent, "Compartir Afiche Mayorista"))
+              }
+
+              private fun isAccessibilityServiceEnabled(): Boolean {
+                  val serviceName = applicationContext.packageName + "/" + WhatsAppAccessibilityService::class.java.canonicalName
+                  val enabledServices = Settings.Secure.getString(
+                      contentResolver,
+                      Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES
+                  ) ?: return false
+                  val splitter = TextUtils.SimpleStringSplitter(':')
+                  splitter.setString(enabledServices)
+                  while (splitter.hasNext()) {
+                      if (splitter.next().equals(serviceName, ignoreCase = true)) {
+                          return true
+                      }
+                  }
+                  return false
+              }
+          }
+          EOF
+
+          cat << 'EOF' > android/app/src/main/AndroidManifest.xml
+          <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+              <uses-permission android:name="android.permission.INTERNET"/>
+              <uses-permission android:name="android.permission.CAMERA"/>
+              <queries>
+                  <package android:name="com.whatsapp" />
+                  <package android:name="com.whatsapp.w4b" />
+                  <intent>
+                      <action android:name="android.intent.action.VIEW" />
+                      <data android:scheme="https" />
+                  </intent>
+                  <intent>
+                      <action android:name="android.intent.action.DIAL" />
+                      <data android:scheme="tel" />
+                  </intent>
+              </queries>
+              <application
+                  android:label="CRM Mayorista Pro"
+                  android:name="${applicationName}"
+                  android:icon="@mipmap/ic_launcher">
+                  <activity
+                      android:name=".MainActivity"
+                      android:exported="true"
+                      android:launchMode="singleTop"
+                      android:theme="@style/LaunchTheme"
+                      android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"
+                      android:hardwareAccelerated="true"
+                      android:windowSoftInputMode="adjustResize">
+                      <meta-data
+                          android:name="io.flutter.embedding.android.NormalTheme"
+                          android:resource="@style/NormalTheme" />
+                      <intent-filter>
+                          <action android:name="android.intent.action.MAIN"/>
+                          <category android:name="android.intent.category.LAUNCHER"/>
+                      </intent-filter>
+                  </activity>
+
+                  <provider
+                      android:name="androidx.core.content.FileProvider"
+                      android:authorities="${applicationId}.fileprovider"
+                      android:exported="false"
+                      android:grantUriPermissions="true">
+                      <meta-data
+                          android:name="android.support.FILE_PROVIDER_PATHS"
+                          android:resource="@xml/file_paths" />
+                  </provider>
+
+                  <service
+                      android:name=".WhatsAppAccessibilityService"
+                      android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE"
+                      android:label="CRM Mayorista Auto-WhatsApp"
+                      android:exported="true">
+                      <intent-filter>
+                          <action android:name="android.accessibilityservice.AccessibilityService" />
+                      </intent-filter>
+                      <meta-data
+                          android:name="android.accessibilityservice"
+                          android:resource="@xml/accessibility_service_config" />
+                  </service>
+
+                  <meta-data
+                      android:name="flutterEmbedding"
+                      android:value="2" />
+              </application>
+          </manifest>
+          EOF
+
+      - name: 5. Compilar APK Release
+        run: flutter build apk --release
+
+      - name: 6. Publicar APK para descarga
+        uses: actions/upload-artifact@v4
+        with:
+          name: CRM-Mayorista-Pro-APK
+          path: build/app/outputs/flutter-apk/app-release.apk
