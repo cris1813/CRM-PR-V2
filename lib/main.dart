@@ -16,7 +16,10 @@ import 'package:image_picker/image_picker.dart';
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
   SystemChrome.setSystemUIOverlayStyle(
-    const SystemUiOverlayStyle(statusBarColor: Colors.transparent),
+    const SystemUiOverlayStyle(
+      statusBarColor: Colors.transparent,
+      statusBarIconBrightness: Brightness.light,
+    ),
   );
   runApp(const CrmMayoristaApp());
 }
@@ -27,16 +30,16 @@ class CrmMayoristaApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'CRM Mayorista Pro',
+      title: 'CRM Mayorista Pro V4',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         brightness: Brightness.dark,
-        scaffoldBackgroundColor: const Color(0xFF0B1120),
+        scaffoldBackgroundColor: const Color(0xFF070B12),
         primaryColor: const Color(0xFF10B981),
         colorScheme: const ColorScheme.dark(
           primary: Color(0xFF10B981),
           secondary: Color(0xFF38BDF8),
-          surface: Color(0xFF1E293B),
+          surface: Color(0xFF131C2E),
         ),
         useMaterial3: true,
       ),
@@ -46,13 +49,14 @@ class CrmMayoristaApp extends StatelessWidget {
 }
 
 // ==========================================
-// MODELO DE CLIENTE
+// MODELO DE CLIENTE + SUGERENCIA IA DINÁMICA
 // ==========================================
 class Cliente {
   String id;
   String nombre;
   String rut;
   String telefono;
+  String telefonoSecundario;
   String categoria;
   String queCompra;
   int montoPromedio;
@@ -66,6 +70,7 @@ class Cliente {
     required this.nombre,
     required this.rut,
     required this.telefono,
+    this.telefonoSecundario = '',
     required this.categoria,
     required this.queCompra,
     required this.montoPromedio,
@@ -74,16 +79,19 @@ class Cliente {
     this.cicloDias = 10,
     DateTime? ultimoContacto,
   }) : ultimoContacto =
-            ultimoContacto ?? DateTime.now().subtract(const Duration(days: 12));
+            ultimoContacto ?? DateTime.now().subtract(const Duration(days: 11));
 
   int get diasSinContacto => DateTime.now().difference(ultimoContacto).inDays;
   bool get requiereAtencionUrgente => diasSinContacto >= cicloDias;
+  double get ratioUrgencia =>
+      (diasSinContacto / (cicloDias <= 0 ? 1 : cicloDias)).clamp(0.0, 1.5);
 
   Map<String, dynamic> toJson() => {
         'id': id,
         'nombre': nombre,
         'rut': rut,
         'telefono': telefono,
+        'telefonoSecundario': telefonoSecundario,
         'categoria': categoria,
         'queCompra': queCompra,
         'montoPromedio': montoPromedio,
@@ -98,6 +106,7 @@ class Cliente {
         nombre: json['nombre'] ?? 'Cliente',
         rut: json['rut'] ?? '',
         telefono: json['telefono'] ?? '',
+        telefonoSecundario: json['telefonoSecundario'] ?? '',
         categoria: json['categoria'] ?? 'Sin Clasificar',
         queCompra: json['queCompra'] ?? '',
         montoPromedio: json['montoPromedio'] ?? 0,
@@ -110,46 +119,85 @@ class Cliente {
 }
 
 // ==========================================
-// CARTERA REAL PRECARGADA DESDE TU PDF
+// BASE MAESTRA: 61 CLIENTES DEL EXCEL (HOJA 1 + HOJA 2) Y PDF
 // ==========================================
-final List<Cliente> clientesSemilla = [
-  Cliente(id: '1', nombre: 'Caroline / Cesar (Almacén San Vicente)', rut: '78.076.635', telefono: '+56964203947', categoria: 'Abarrotes y Alimentos', queCompra: 'Compra millones en chocolates', montoPromedio: 2000000, notas: 'Tel alt: 935595136. Llamar y escribir', cicloDias: 7, ultimoContacto: DateTime.now().subtract(const Duration(days: 11))),
-  Cliente(id: '2', nombre: 'Comercializadora Weisz', rut: '78.102.847-9', telefono: '+56981441715', categoria: 'Abarrotes y Alimentos', queCompra: 'Mucho pallet de arroz y azúcar', montoPromedio: 1500000, notas: 'Cliente potencial de alto volumen', cicloDias: 10, ultimoContacto: DateTime.now().subtract(const Duration(days: 14))),
-  Cliente(id: '3', nombre: 'Marcela', rut: '', telefono: '+56961636386', categoria: 'Abarrotes y Alimentos', queCompra: 'Precios por pallet y productos corta fecha', montoPromedio: 800000, notas: 'Avisar apenas entren lotes a corta fecha', cicloDias: 7, ultimoContacto: DateTime.now().subtract(const Duration(days: 8))),
-  Cliente(id: '4', nombre: 'Santa Economia EIRL / Mauricio Miranda', rut: '78.199.928-8', telefono: '+56997586362', categoria: 'Abarrotes y Alimentos', queCompra: 'Surtido general de negocio', montoPromedio: 1200000, notas: 'Compra mucho, recién surtiendo negocio', cicloDias: 10, ultimoContacto: DateTime.now().subtract(const Duration(days: 5))),
-  Cliente(id: '5', nombre: 'Santa Flora SpA / Cristian Miranda', rut: '78.291.382-4', telefono: '+56983543128', categoria: 'Abarrotes y Alimentos', queCompra: 'Compra de todo y bebidas', montoPromedio: 1000000, notas: 'Avisar urgente cuando lleguen todas las bebidas', cicloDias: 7, ultimoContacto: DateTime.now().subtract(const Duration(days: 9))),
-  Cliente(id: '6', nombre: 'Silvia', rut: '9.182.388-8', telefono: '+56936424876', categoria: 'Abarrotes y Alimentos', queCompra: 'Surtido de todo para almacén', montoPromedio: 450000, notas: 'Almacén tradicional', cicloDias: 10, ultimoContacto: DateTime.now().subtract(const Duration(days: 4))),
-  Cliente(id: '7', nombre: 'Sra Margarita (Verdurería Las Nietas)', rut: '11.737.106-9', telefono: '+56972969640', categoria: 'Abarrotes y Alimentos', queCompra: 'Surtido completo minimarket playa', montoPromedio: 3000000, notas: 'Cliente Ballena: compra 3 millones', cicloDias: 10, ultimoContacto: DateTime.now().subtract(const Duration(days: 15))),
-  Cliente(id: '8', nombre: 'Victor / Panadería', rut: '78.441.909-6', telefono: '+56981934386', categoria: 'Abarrotes y Alimentos', queCompra: 'Insumos panadería y abarrotes', montoPromedio: 2000000, notas: 'Cliente Ballena: compró 2 millones', cicloDias: 10, ultimoContacto: DateTime.now().subtract(const Duration(days: 13))),
-  Cliente(id: '9', nombre: 'Erika Saez', rut: '13.607.820-8', telefono: '+56966162817', categoria: 'Abarrotes y Alimentos', queCompra: 'Queso despunte y fiambrería', montoPromedio: 500000, notas: 'Avisar siempre que llegue queso despunte', cicloDias: 7, ultimoContacto: DateTime.now().subtract(const Duration(days: 8))),
-  Cliente(id: '10', nombre: 'Cliente Almacenero', rut: '', telefono: '+56942826685', categoria: 'Abarrotes y Alimentos', queCompra: 'Mercadería general de almacén', montoPromedio: 500000, notas: 'Promedio de compra 500.000', cicloDias: 10, ultimoContacto: DateTime.now().subtract(const Duration(days: 6))),
-  Cliente(id: '11', nombre: 'Agrolatino / Cristopher', rut: '78.070.723-2', telefono: '+56932516615', categoria: 'Aseo y Papel', queCompra: 'Pallet de papel higiénico', montoPromedio: 1200000, notas: 'Compra por volumen de pallet', cicloDias: 14, ultimoContacto: DateTime.now().subtract(const Duration(days: 12))),
-  Cliente(id: '12', nombre: 'Andres Albarracin', rut: '77.305.701-K', telefono: '+56958383389', categoria: 'Aseo y Papel', queCompra: 'Higiénico, toalla, servilleta, bolsa, detergente', montoPromedio: 900000, notas: 'Canal E-commerce', cicloDias: 10, ultimoContacto: DateTime.now().subtract(const Duration(days: 7))),
-  Cliente(id: '13', nombre: 'Carlos Ignacio Brante', rut: '15.999.884-3', telefono: '+56964819488', categoria: 'Aseo y Papel', queCompra: 'Papel higiénico y toallas', montoPromedio: 450000, notas: 'Emprendimiento de papel', cicloDias: 10, ultimoContacto: DateTime.now().subtract(const Duration(days: 9))),
-  Cliente(id: '14', nombre: 'Comercial ATH / Pedro', rut: '76.751.574-K', telefono: '+56922133197', categoria: 'Aseo y Papel', queCompra: 'Mucho papel (cotizó 500 mangas de Elite)', montoPromedio: 2500000, notas: 'Cliente de altísimo volumen en papel', cicloDias: 10, ultimoContacto: DateTime.now().subtract(const Duration(days: 14))),
-  Cliente(id: '15', nombre: 'Dilum Restauran', rut: '75.840.502-6', telefono: '+56942252957', categoria: 'Aseo y Papel', queCompra: 'Papel oferta 4x500', montoPromedio: 400000, notas: 'Recordatorio: Avisar día 20 para oferta 4x500', cicloDias: 15, ultimoContacto: DateTime.now().subtract(const Duration(days: 16))),
-  Cliente(id: '16', nombre: 'DIST Y COMER Santa Juana LTDA', rut: '77.882.033-1', telefono: '+56977646940', categoria: 'Aseo y Papel', queCompra: 'Papel higiénico, toalla y productos corta fecha', montoPromedio: 1100000, notas: 'Interesado en corta fecha y papel', cicloDias: 10, ultimoContacto: DateTime.now().subtract(const Duration(days: 8))),
-  Cliente(id: '17', nombre: 'Edgar (Ovalle - 3 Minimarkets)', rut: '26.452.795-3', telefono: '+56954843198', categoria: 'Aseo y Papel', queCompra: 'Aseo y perfumería para 3 locales', montoPromedio: 1800000, notas: 'Es de Ovalle. DE PREFERENCIA LLAMAR', prefiereLlamada: true, cicloDias: 12, ultimoContacto: DateTime.now().subtract(const Duration(days: 15))),
-  Cliente(id: '18', nombre: 'Karen', rut: '', telefono: '+56978797268', categoria: 'Aseo y Papel', queCompra: 'Papel y artículos de aseo', montoPromedio: 400000, notas: 'Interesada en ofertas de aseo', cicloDias: 10, ultimoContacto: DateTime.now().subtract(const Duration(days: 5))),
-  Cliente(id: '19', nombre: 'LED - MARIA CRISTINA', rut: '16.716.408-0', telefono: '+56978473181', categoria: 'Aseo y Papel', queCompra: 'Artículos de aseo por mayor', montoPromedio: 1500000, notas: 'Compran mucho. Tel 2: 978473185', cicloDias: 10, ultimoContacto: DateTime.now().subtract(const Duration(days: 11))),
-  Cliente(id: '20', nombre: 'Limpieza Aysi SpA', rut: '78.414.683', telefono: '+56986484781', categoria: 'Aseo y Papel', queCompra: 'Artículos de limpieza general', montoPromedio: 400000, notas: 'Cliente empezando en venta de limpieza', cicloDias: 10, ultimoContacto: DateTime.now().subtract(const Duration(days: 6))),
-  Cliente(id: '21', nombre: 'Maribel Natalia Arcos', rut: '17.336.845-3', telefono: '+56948755324', categoria: 'Aseo y Papel', queCompra: 'Mucho papel e insumos para carnicería', montoPromedio: 950000, notas: 'Carnicería. DE PREFERENCIA LLAMAR (Javi)', prefiereLlamada: true, cicloDias: 10, ultimoContacto: DateTime.now().subtract(const Duration(days: 12))),
-  Cliente(id: '22', nombre: 'Minimarket Ricardo Andres Nuñez', rut: '78.322.941-2', telefono: '+56959661230', categoria: 'Aseo y Papel', queCompra: 'Papel de 10 en 10 mangas por tipo', montoPromedio: 500000, notas: 'Promedio de compra \$500.000 constante', cicloDias: 10, ultimoContacto: DateTime.now().subtract(const Duration(days: 9))),
-  Cliente(id: '23', nombre: 'Angel L2P SpA', rut: '78.130.297-K', telefono: '+56931815515', categoria: 'Mayoristas / Surtido General', queCompra: 'Compra de todo (surtido completo)', montoPromedio: 1500000, notas: 'Recordatorio: Llamar los lunes', prefiereLlamada: true, cicloDias: 7, ultimoContacto: DateTime.now().subtract(const Duration(days: 8))),
-  Cliente(id: '24', nombre: 'Comercial Nietos / Alfredo', rut: '77.979.333-8', telefono: '+56978515834', categoria: 'Mayoristas / Surtido General', queCompra: 'Compra millones y de todo', montoPromedio: 2800000, notas: 'Ballena VIP: Cliente con varios locales', cicloDias: 10, ultimoContacto: DateTime.now().subtract(const Duration(days: 14))),
-  Cliente(id: '25', nombre: 'Edisson Bonacic Rojas', rut: '13.983.850-5', telefono: '+56957111745', categoria: 'Mayoristas / Surtido General', queCompra: 'Surtido mayorista de alto volumen', montoPromedio: 3000000, notas: 'Última compra 3 millones - IMPORTANTE LLAMAR', prefiereLlamada: true, cicloDias: 10, ultimoContacto: DateTime.now().subtract(const Duration(days: 16))),
-  Cliente(id: '26', nombre: 'Fabian Erice (Rancagua)', rut: '17.573.384-1', telefono: '+56957047224', categoria: 'Mayoristas / Surtido General', queCompra: 'Compra quincenal de todo', montoPromedio: 1400000, notas: 'Ciclo fijo cada 15 días (Rancagua)', cicloDias: 14, ultimoContacto: DateTime.now().subtract(const Duration(days: 14))),
-  Cliente(id: '27', nombre: 'Luis Silva (Melipilla)', rut: '78.370.642-3', telefono: '+56965857854', categoria: 'Mayoristas / Surtido General', queCompra: 'Surtido con despacho a Melipilla', montoPromedio: 650000, notas: 'Compra sobre \$600.000 para despacho', cicloDias: 12, ultimoContacto: DateTime.now().subtract(const Duration(days: 10))),
-  Cliente(id: '28', nombre: 'Tres Hermanos', rut: '78.177.706-4', telefono: '+56957260645', categoria: 'Mayoristas / Surtido General', queCompra: 'Compra de todo y mucho producto TOP', montoPromedio: 1800000, notas: 'Avisar productos de alta rotación', cicloDias: 10, ultimoContacto: DateTime.now().subtract(const Duration(days: 7))),
-  Cliente(id: '29', nombre: 'Yris Local 57', rut: '', telefono: '+56921751069', categoria: 'Mayoristas / Surtido General', queCompra: 'Compra de todo', montoPromedio: 750000, notas: 'Local 57', cicloDias: 10, ultimoContacto: DateTime.now().subtract(const Duration(days: 6))),
-  Cliente(id: '30', nombre: 'Ramon', rut: '', telefono: '+56954352142', categoria: 'Clientes de Feria', queCompra: 'Papelería y perfumería', montoPromedio: 350000, notas: 'Puesto de Feria', cicloDias: 7, ultimoContacto: DateTime.now().subtract(const Duration(days: 5))),
-  Cliente(id: '31', nombre: 'Miguel Muñoz', rut: '', telefono: '+56956054737', categoria: 'Clientes de Feria', queCompra: 'Papelería y perfumería', montoPromedio: 350000, notas: 'Puesto de Feria', cicloDias: 7, ultimoContacto: DateTime.now().subtract(const Duration(days: 8))),
-  Cliente(id: '32', nombre: 'Gemma del Carmen Henriquez Orellana', rut: '12.676.382-4', telefono: '', categoria: 'Facturación Reciente', queCompra: 'Factura Mayorista (7 líneas de prod.)', montoPromedio: 1292815, notas: 'Sucursal Bernardino Parada 0958 - Transf. Electrónica', cicloDias: 10, ultimoContacto: DateTime.now().subtract(const Duration(days: 11))),
-  Cliente(id: '33', nombre: 'Marco Loriza Pereira', rut: '9.766.488-2', telefono: '', categoria: 'Facturación Reciente', queCompra: 'Factura Mayorista (15 productos)', montoPromedio: 253548, notas: 'Local 77 Bodega Mersan - Transbank', cicloDias: 14, ultimoContacto: DateTime.now().subtract(const Duration(days: 9))),
-  Cliente(id: '34', nombre: 'Angelo Fuente Alba', rut: '', telefono: '+56987387277', categoria: 'Sin Clasificar', queCompra: 'Pendiente consultar rubro principal', montoPromedio: 300000, notas: 'Clasificar en próximo contacto', cicloDias: 7, ultimoContacto: DateTime.now().subtract(const Duration(days: 15))),
-  Cliente(id: '35', nombre: 'Freddy Cartagena', rut: '', telefono: '+56963162615', categoria: 'Sin Clasificar', queCompra: 'Pendiente consultar rubro principal', montoPromedio: 300000, notas: 'Clasificar en próximo contacto', cicloDias: 7, ultimoContacto: DateTime.now().subtract(const Duration(days: 15))),
-  Cliente(id: '36', nombre: 'GSM Construcciones SpA', rut: '', telefono: '+56950339202', categoria: 'Sin Clasificar', queCompra: 'Pendiente consultar rubro principal', montoPromedio: 400000, notas: 'Empresa constructora', cicloDias: 14, ultimoContacto: DateTime.now().subtract(const Duration(days: 14))),
-];
+List<Cliente> construirCarteraMaestra61() {
+  final now = DateTime.now();
+  return [
+    // --- ABARROTES Y ALIMENTOS (15 CLIENTES) ---
+    Cliente(id: '1', nombre: 'Caroline (Almacén San Vicente)', rut: '', telefono: '+56964203947', categoria: 'Abarrotes y Alimentos', queCompra: 'Surtido general para almacén', montoPromedio: 600000, notas: 'Almacén San Vicente', cicloDias: 10, ultimoContacto: now.subtract(const Duration(days: 8))),
+    Cliente(id: '2', nombre: 'Cesar', rut: '78.076.635', telefono: '+56935595136', categoria: 'Abarrotes y Alimentos', queCompra: 'Compra millones en chocolates', montoPromedio: 2000000, notas: 'Ballena en chocolates. Llamar y escribir', prefiereLlamada: true, cicloDias: 7, ultimoContacto: now.subtract(const Duration(days: 11))),
+    Cliente(id: '3', nombre: 'Comercializadora Weisz', rut: '78.102.847-9', telefono: '+56981441715', categoria: 'Abarrotes y Alimentos', queCompra: 'Mucho pallet de arroz y azúcar', montoPromedio: 1500000, notas: 'Cliente potencial de alto volumen por pallet', cicloDias: 10, ultimoContacto: now.subtract(const Duration(days: 14))),
+    Cliente(id: '4', nombre: 'Marcela', rut: '', telefono: '+56961636386', categoria: 'Abarrotes y Alimentos', queCompra: 'Precios por pallet y productos corta fecha', montoPromedio: 850000, notas: 'Avisar apenas entren lotes a corta fecha y pallets', cicloDias: 7, ultimoContacto: now.subtract(const Duration(days: 9))),
+    Cliente(id: '5', nombre: 'Santa Economía EIRL / Mauricio Miranda', rut: '78.199.928-8', telefono: '+56997586362', categoria: 'Abarrotes y Alimentos', queCompra: 'Compra mucho - recién surtiendo un negocio', montoPromedio: 1200000, notas: 'Surtido inicial de alto volumen', cicloDias: 10, ultimoContacto: now.subtract(const Duration(days: 5))),
+    Cliente(id: '6', nombre: 'Santa Flora SpA / Cristian Miranda', rut: '78.291.382-4', telefono: '+56983543128', categoria: 'Abarrotes y Alimentos', queCompra: 'Compra de todo y bebidas', montoPromedio: 1100000, notas: 'Avisar urgente cuando lleguen todas las bebidas', cicloDias: 7, ultimoContacto: now.subtract(const Duration(days: 9))),
+    Cliente(id: '7', nombre: 'Silvia', rut: '9.182.388-8', telefono: '+56936424876', categoria: 'Abarrotes y Alimentos', queCompra: 'Silvia compra de todo - almacén', montoPromedio: 450000, notas: 'Almacén tradicional', cicloDias: 10, ultimoContacto: now.subtract(const Duration(days: 4))),
+    Cliente(id: '8', nombre: 'Sra. Margarita (Verdurería Las Nietas)', rut: '11.737.106-9', telefono: '+56972969640', categoria: 'Abarrotes y Alimentos', queCompra: 'Minimarket playa - compra 3 millones', montoPromedio: 3000000, notas: 'Ballena VIP (Playa): compra 3 millones', prefiereLlamada: true, cicloDias: 10, ultimoContacto: now.subtract(const Duration(days: 15))),
+    Cliente(id: '9', nombre: 'Victor / Panadería', rut: '78.441.909-6', telefono: '+56981934386', categoria: 'Abarrotes y Alimentos', queCompra: 'Panadería - compró 2 millones', montoPromedio: 2000000, notas: 'Ballena VIP: Cliente compró 2 millones', cicloDias: 10, ultimoContacto: now.subtract(const Duration(days: 13))),
+    Cliente(id: '10', nombre: 'Erika Saez', rut: '13.607.820-8', telefono: '+56966162817', categoria: 'Abarrotes y Alimentos', queCompra: 'Queso despunte y fiambrería', montoPromedio: 500000, notas: 'Avisar siempre que llegue queso despunte', cicloDias: 7, ultimoContacto: now.subtract(const Duration(days: 8))),
+    Cliente(id: '11', nombre: 'Cliente Almacenero (942826685)', rut: '', telefono: '+56942826685', categoria: 'Abarrotes y Alimentos', queCompra: 'Clientes almaceneros', montoPromedio: 500000, notas: 'Promedio de compra \$500.000', cicloDias: 10, ultimoContacto: now.subtract(const Duration(days: 6))),
+    Cliente(id: '12', nombre: 'Tres Mundos', rut: '76.549.757-4', telefono: '+56962530106', categoria: 'Abarrotes y Alimentos', queCompra: 'Compra mucha agua y bebestibles', montoPromedio: 900000, notas: 'Gestionar para que compre todos sus bebestibles AQUÍ', cicloDias: 7, ultimoContacto: now.subtract(const Duration(days: 10))),
+    Cliente(id: '13', nombre: 'Alan Muñoz (Pirque)', rut: '76.999.379-7', telefono: '+56968646796', categoria: 'Abarrotes y Alimentos', queCompra: 'Compra para negocio nuevo en Pirque', montoPromedio: 400000, notas: 'Cliente de Pirque, promedio de compra \$400.000', cicloDias: 10, ultimoContacto: now.subtract(const Duration(days: 7))),
+    Cliente(id: '14', nombre: 'Maritza', rut: '15.619.381-K', telefono: '+56976969375', categoria: 'Abarrotes y Alimentos', queCompra: 'Compra de todo un poco, almacén', montoPromedio: 450000, notas: 'Clienta de almacén', cicloDias: 10, ultimoContacto: now.subtract(const Duration(days: 6))),
+    Cliente(id: '15', nombre: 'Isacc', rut: '18.951.542-1', telefono: '+56940565466', categoria: 'Abarrotes y Alimentos', queCompra: 'Compra papel, abarrotes, de todo un poco', montoPromedio: 500000, notas: 'Promedio de compra \$500.000', cicloDias: 10, ultimoContacto: now.subtract(const Duration(days: 11))),
+
+    // --- ASEO Y PAPEL (17 CLIENTES) ---
+    Cliente(id: '16', nombre: 'Agrolatino / Cristopher', rut: '78.070.723-2', telefono: '+56932566154', telefonoSecundario: '+56932632323', categoria: 'Aseo y Papel', queCompra: 'Pallet de papel higiénico', montoPromedio: 1200000, notas: 'Contacto 2: Génesis (+56932632323)', cicloDias: 14, ultimoContacto: now.subtract(const Duration(days: 12))),
+    Cliente(id: '17', nombre: 'Andres Albarracin', rut: '77.305.701-K', telefono: '+56958383389', categoria: 'Aseo y Papel', queCompra: 'Higiénico, toalla, servilleta, bolsa y detergente', montoPromedio: 900000, notas: 'Canal E-commerce', cicloDias: 10, ultimoContacto: now.subtract(const Duration(days: 7))),
+    Cliente(id: '18', nombre: 'Carlos Ignacio Brante', rut: '15.999.884-3', telefono: '+56964819488', categoria: 'Aseo y Papel', queCompra: 'Emprendimiento de papel', montoPromedio: 500000, notas: 'Emprendimiento especializado en papel', cicloDias: 10, ultimoContacto: now.subtract(const Duration(days: 9))),
+    Cliente(id: '19', nombre: 'Comercial ATH / Pedro', rut: '76.751.574-K', telefono: '+56922133197', categoria: 'Aseo y Papel', queCompra: 'Mucho papel / cotizó 500 mangas de Elite', montoPromedio: 2500000, notas: 'Ballena de papel: cotizó 500 mangas de Elite', prefiereLlamada: true, cicloDias: 10, ultimoContacto: now.subtract(const Duration(days: 14))),
+    Cliente(id: '20', nombre: 'Dilum Restauran', rut: '76.840.502-6', telefono: '+56942252957', categoria: 'Aseo y Papel', queCompra: 'Papel oferta 4x500', montoPromedio: 400000, notas: 'Recordatorio: Avisar el día 20/7 para oferta 4x500', cicloDias: 15, ultimoContacto: now.subtract(const Duration(days: 16))),
+    Cliente(id: '21', nombre: 'DIST Y COMER Santa Juana LTDA', rut: '77.882.033-1', telefono: '+56977646940', categoria: 'Aseo y Papel', queCompra: 'Papel higiénico, toalla y productos a corta fecha', montoPromedio: 1100000, notas: 'Interesado en corta fecha y papel', cicloDias: 10, ultimoContacto: now.subtract(const Duration(days: 8))),
+    Cliente(id: '22', nombre: 'Edgar (Ovalle - 3 Minimarkets)', rut: '26.452.795-3', telefono: '+56954843198', categoria: 'Aseo y Papel', queCompra: '3 minimarkets en aseo y perfumería', montoPromedio: 1800000, notas: 'Es de Ovalle - DE PREFERENCIA LLAMAR', prefiereLlamada: true, cicloDias: 12, ultimoContacto: now.subtract(const Duration(days: 15))),
+    Cliente(id: '23', nombre: 'Karen', rut: '10.228.258-2', telefono: '+56978797268', categoria: 'Aseo y Papel', queCompra: 'Interesada en papel y aseo', montoPromedio: 450000, notas: 'RUT recuperado de Hoja 1', cicloDias: 10, ultimoContacto: now.subtract(const Duration(days: 5))),
+    Cliente(id: '24', nombre: 'LEO-MARIA CRISTINA', rut: '16.716.408-0', telefono: '+56978473181', telefonoSecundario: '+56978473185', categoria: 'Aseo y Papel', queCompra: 'Artículos de aseo por mayor', montoPromedio: 1500000, notas: 'Compran mucho. Tel 2: +56978473185', cicloDias: 10, ultimoContacto: now.subtract(const Duration(days: 11))),
+    Cliente(id: '25', nombre: 'Limpieza Ays SpA', rut: '78.414.683-9', telefono: '+56986484781', categoria: 'Aseo y Papel', queCompra: 'Venta de artículos de limpieza', montoPromedio: 450000, notas: 'Cliente empezando en venta de limpieza', cicloDias: 10, ultimoContacto: now.subtract(const Duration(days: 6))),
+    Cliente(id: '26', nombre: 'Maribel Natalia Arcos', rut: '17.336.845-3', telefono: '+56948755324', categoria: 'Aseo y Papel', queCompra: 'Carnicería / Compra mucho papel', montoPromedio: 950000, notas: 'DE PREFERENCIA LLAMAR (*Javi)', prefiereLlamada: true, cicloDias: 10, ultimoContacto: now.subtract(const Duration(days: 12))),
+    Cliente(id: '27', nombre: 'Milko', rut: '', telefono: '+56949203691', categoria: 'Aseo y Papel', queCompra: 'Compra millones en aseo', montoPromedio: 2200000, notas: 'Ballena de aseo (teléfono +56949203691 de Hoja 1)', prefiereLlamada: true, cicloDias: 10, ultimoContacto: now.subtract(const Duration(days: 14))),
+    Cliente(id: '28', nombre: 'Minimarket Ricardo Andres Nuñez', rut: '78.322.941-2', telefono: '+56959661230', categoria: 'Aseo y Papel', queCompra: 'Papel de 10 en 10 mangas por tipo', montoPromedio: 500000, notas: 'Promedio de compra \$500.000 constante', cicloDias: 10, ultimoContacto: now.subtract(const Duration(days: 9))),
+    Cliente(id: '29', nombre: 'Josep Silva', rut: '', telefono: '+56933265687', categoria: 'Aseo y Papel', queCompra: 'Compra pallet de papel', montoPromedio: 1100000, notas: 'Comprador por pallet de papel (Hoja 1)', cicloDias: 12, ultimoContacto: now.subtract(const Duration(days: 13))),
+    Cliente(id: '30', nombre: 'Felipe Lobos / Casa Blanca', rut: '7.334.621-5', telefono: '+56968462688', categoria: 'Aseo y Papel', queCompra: 'Compró pallet de papel', montoPromedio: 1100000, notas: 'Casa Blanca - comprador de pallet (Hoja 1)', cicloDias: 14, ultimoContacto: now.subtract(const Duration(days: 15))),
+    Cliente(id: '31', nombre: 'Minimarket Daniela Alej', rut: '78.065.528-3', telefono: '+56972397906', categoria: 'Aseo y Papel', queCompra: 'Compra de todo, mayormente papel', montoPromedio: 650000, notas: 'Minimarket con alta rotación de papel', cicloDias: 10, ultimoContacto: now.subtract(const Duration(days: 8))),
+    Cliente(id: '32', nombre: 'Jesús Peña (Lampa)', rut: '18.764.319-8', telefono: '+56941714982', categoria: 'Aseo y Papel', queCompra: 'Pallets de papel todas las semanas + abarrotes y Score', montoPromedio: 1800000, notas: 'Lampa - compra semanal de pallets. LLAMAR', prefiereLlamada: true, cicloDias: 7, ultimoContacto: now.subtract(const Duration(days: 9))),
+
+    // --- MAYORISTAS / SURTIDO GENERAL (10 CLIENTES) ---
+    Cliente(id: '33', nombre: 'Angel L2P SpA', rut: '78.130.297-K', telefono: '+56931815515', categoria: 'Mayoristas / Surtido General', queCompra: 'Compra de todo - llamar próximo lunes', montoPromedio: 1500000, notas: 'Llamar todos los lunes', prefiereLlamada: true, cicloDias: 7, ultimoContacto: now.subtract(const Duration(days: 8))),
+    Cliente(id: '34', nombre: 'Comercial Nietos / Alfredo', rut: '77.979.333-8', telefono: '+56978515834', categoria: 'Mayoristas / Surtido General', queCompra: 'Compra millones y de todo - varios locales', montoPromedio: 2800000, notas: 'Ballena VIP con varios locales', prefiereLlamada: true, cicloDias: 10, ultimoContacto: now.subtract(const Duration(days: 14))),
+    Cliente(id: '35', nombre: 'Edisson Bonacic Rojas', rut: '13.983.850-5', telefono: '+56957111745', categoria: 'Mayoristas / Surtido General', queCompra: 'Última compra 3 millones - surtido general', montoPromedio: 3000000, notas: 'Ballena VIP 3 millones - IMPORTANTE LLAMAR', prefiereLlamada: true, cicloDias: 10, ultimoContacto: now.subtract(const Duration(days: 16))),
+    Cliente(id: '36', nombre: 'Fabian Erice (Rancagua)', rut: '17.573.384-1', telefono: '+56957047224', categoria: 'Mayoristas / Surtido General', queCompra: 'Rancagua - compra quincenal de todo', montoPromedio: 1400000, notas: 'Ciclo fijo cada 15 días (Rancagua)', cicloDias: 14, ultimoContacto: now.subtract(const Duration(days: 14))),
+    Cliente(id: '37', nombre: 'Luis Silva (Melipilla)', rut: '78.370.642-3', telefono: '+56965857854', categoria: 'Mayoristas / Surtido General', queCompra: 'Compras con despacho a Melipilla sobre \$600.000', montoPromedio: 650000, notas: 'Despacho a Melipilla (compra sobre 600 mil)', cicloDias: 12, ultimoContacto: now.subtract(const Duration(days: 10))),
+    Cliente(id: '38', nombre: 'Tres Hermanos', rut: '78.177.706-4', telefono: '+56957260645', categoria: 'Mayoristas / Surtido General', queCompra: 'Compra de todo y mucho - cliente TOP', montoPromedio: 1800000, notas: 'Cliente TOP de alta rotación', cicloDias: 10, ultimoContacto: now.subtract(const Duration(days: 7))),
+    Cliente(id: '39', nombre: 'Yris Local 57', rut: '', telefono: '+56921751069', categoria: 'Mayoristas / Surtido General', queCompra: 'Compra de todo', montoPromedio: 750000, notas: 'Local 57', cicloDias: 10, ultimoContacto: now.subtract(const Duration(days: 6))),
+    Cliente(id: '40', nombre: 'José Aguilera (Distribuidor)', rut: '10.228.258-2', telefono: '+56963280936', categoria: 'Mayoristas / Surtido General', queCompra: 'Compra por encargos de todo para repartir a almacenes', montoPromedio: 1300000, notas: 'Reparte a diferentes almacenes (Hoja 1)', cicloDias: 7, ultimoContacto: now.subtract(const Duration(days: 9))),
+    Cliente(id: '41', nombre: 'Hugo Ximenez (Quilicura)', rut: '78.351.458-3', telefono: '+56962454930', categoria: 'Mayoristas / Surtido General', queCompra: 'Compra de todo, mucho abarrote y pallets de papel', montoPromedio: 1600000, notas: 'Quilicura - alto volumen en abarrotes y papel', cicloDias: 10, ultimoContacto: now.subtract(const Duration(days: 11))),
+    Cliente(id: '42', nombre: 'Jocelyn Hernandez (Melipilla)', rut: '18.777.480-2', telefono: '+56953416737', categoria: 'Mayoristas / Surtido General', queCompra: 'Viene todos los lunes, compra por cantidad', montoPromedio: 1200000, notas: 'Es de Melipilla - compra todos los lunes', cicloDias: 7, ultimoContacto: now.subtract(const Duration(days: 7))),
+
+    // --- CLIENTES DE FERIA (2 CLIENTES) ---
+    Cliente(id: '43', nombre: 'Ramon', rut: '', telefono: '+56954352142', categoria: 'Clientes de Feria', queCompra: 'Comerciante de feria', montoPromedio: 350000, notas: 'Feria', cicloDias: 7, ultimoContacto: now.subtract(const Duration(days: 5))),
+    Cliente(id: '44', nombre: 'Miguel Muñoz', rut: '', telefono: '+56956054737', categoria: 'Clientes de Feria', queCompra: 'Papelería y perfumería', montoPromedio: 350000, notas: 'Feria', cicloDias: 7, ultimoContacto: now.subtract(const Duration(days: 8))),
+
+    // --- CLIENTES PENDIENTES / SIN CLASIFICAR (12 CLIENTES) ---
+    Cliente(id: '45', nombre: 'Angelo Fuente Alba', rut: '', telefono: '+56987387277', categoria: 'Sin Clasificar', queCompra: 'Pendiente consultar rubro principal', montoPromedio: 300000, notas: 'Clasificar en próximo contacto', cicloDias: 10, ultimoContacto: now.subtract(const Duration(days: 14))),
+    Cliente(id: '46', nombre: 'Darwin', rut: '', telefono: '+56996141816', categoria: 'Sin Clasificar', queCompra: 'Pendiente consultar rubro principal', montoPromedio: 300000, notas: 'Clasificar en próximo contacto', cicloDias: 10, ultimoContacto: now.subtract(const Duration(days: 14))),
+    Cliente(id: '47', nombre: 'Felipe', rut: '', telefono: '', categoria: 'Sin Clasificar', queCompra: 'Pendiente registrar teléfono y rubro', montoPromedio: 300000, notas: 'Sin teléfono en planilla Excel', cicloDias: 14, ultimoContacto: now.subtract(const Duration(days: 15))),
+    Cliente(id: '48', nombre: 'Freddy Cartagena', rut: '', telefono: '+56963162615', categoria: 'Sin Clasificar', queCompra: 'Pendiente consultar rubro principal', montoPromedio: 300000, notas: 'Clasificar en próximo contacto', cicloDias: 10, ultimoContacto: now.subtract(const Duration(days: 13))),
+    Cliente(id: '49', nombre: 'GSM Construcciones SpA', rut: '', telefono: '+56950339202', categoria: 'Sin Clasificar', queCompra: 'Empresa constructora (consultar insumos/aseo)', montoPromedio: 400000, notas: 'Clasificar en próximo contacto', cicloDias: 14, ultimoContacto: now.subtract(const Duration(days: 14))),
+    Cliente(id: '50', nombre: 'Jamyl SpA', rut: '76.990.226-0', telefono: '+56992175269', categoria: 'Sin Clasificar', queCompra: 'Pendiente consultar rubro principal', montoPromedio: 400000, notas: 'RUT 76990226-0 (Tel en Excel: 92175269)', cicloDias: 12, ultimoContacto: now.subtract(const Duration(days: 13))),
+    Cliente(id: '51', nombre: 'Jorge', rut: '', telefono: '+56973427894', telefonoSecundario: '+56959661230', categoria: 'Sin Clasificar', queCompra: 'Pendiente consultar rubro principal', montoPromedio: 350000, notas: 'Anotación original: 2/2. Tel 2: +56959661230', cicloDias: 10, ultimoContacto: now.subtract(const Duration(days: 12))),
+    Cliente(id: '52', nombre: 'Manuel', rut: '', telefono: '+56983901434', categoria: 'Sin Clasificar', queCompra: 'Pendiente consultar rubro principal', montoPromedio: 300000, notas: 'Clasificar en próximo contacto', cicloDias: 10, ultimoContacto: now.subtract(const Duration(days: 11))),
+    Cliente(id: '53', nombre: 'Peter Lobos', rut: '', telefono: '+56937434472', categoria: 'Sin Clasificar', queCompra: 'Pendiente consultar rubro principal', montoPromedio: 300000, notas: 'Clasificar en próximo contacto', cicloDias: 10, ultimoContacto: now.subtract(const Duration(days: 12))),
+    Cliente(id: '54', nombre: 'Pablo San Martín', rut: '', telefono: '+56976233136', categoria: 'Sin Clasificar', queCompra: 'Pendiente consultar rubro principal', montoPromedio: 300000, notas: 'Recuperado de Hoja 1 (Fila 55)', cicloDias: 10, ultimoContacto: now.subtract(const Duration(days: 11))),
+    Cliente(id: '55', nombre: 'Contacto Mayorista (995419965)', rut: '', telefono: '+56995419965', categoria: 'Sin Clasificar', queCompra: 'Pendiente identificar nombre y rubro', montoPromedio: 300000, notas: 'Recuperado de Hoja 1 (Fila 48)', cicloDias: 10, ultimoContacto: now.subtract(const Duration(days: 12))),
+    Cliente(id: '56', nombre: 'Contacto Mayorista (962829954)', rut: '', telefono: '+56962829954', categoria: 'Sin Clasificar', queCompra: 'Pendiente identificar nombre y rubro', montoPromedio: 300000, notas: 'Recuperado de Hoja 1 (Fila 151)', cicloDias: 10, ultimoContacto: now.subtract(const Duration(days: 12))),
+
+    // --- FACTURACIÓN / BOLETAS PDF (5 CLIENTES) ---
+    Cliente(id: '57', nombre: 'Gemma del Carmen Henriquez Orellana', rut: '12.676.382-4', telefono: '', categoria: 'Facturación Reciente', queCompra: 'Factura Mayorista (7 líneas de producto)', montoPromedio: 1292815, notas: 'Sucursal Bernardino Parada 0958 - Pago Transf. Electrónica', cicloDias: 10, ultimoContacto: now.subtract(const Duration(days: 11))),
+    Cliente(id: '58', nombre: 'Marco Loriza Pereira', rut: '9.766.488-2', telefono: '', categoria: 'Facturación Reciente', queCompra: 'Factura Mayorista 9575 (15 productos)', montoPromedio: 253548, notas: 'Local 77 Bodega Mersan - Sucursal Acapulco 08187', cicloDias: 14, ultimoContacto: now.subtract(const Duration(days: 9))),
+    Cliente(id: '59', nombre: 'Elizabeth Gonzalez', rut: '12.286.172-4', telefono: '', categoria: 'Facturación Reciente', queCompra: 'Boleta Mayorista 9550 (Bodega Mersan)', montoPromedio: 350000, notas: 'Sucursal Parcela Lote 1-7 Santa Mónica', cicloDias: 14, ultimoContacto: now.subtract(const Duration(days: 10))),
+    Cliente(id: '60', nombre: 'Gonzalo Schillings', rut: '18.392.938-0', telefono: '', categoria: 'Facturación Reciente', queCompra: 'Registro RUT Mayorista', montoPromedio: 400000, notas: 'Documento adjunto pág. 3', cicloDias: 14, ultimoContacto: now.subtract(const Duration(days: 12))),
+    Cliente(id: '61', nombre: 'Javiera Alejandra', rut: '19.847.147-K', telefono: '', categoria: 'Facturación Reciente', queCompra: 'Registro RUT Mayorista', montoPromedio: 400000, notas: 'Documento adjunto pág. 3', cicloDias: 14, ultimoContacto: now.subtract(const Duration(days: 12))),
+  ];
+}
 
 String formatearPesos(int monto) {
   final str = monto.toString();
@@ -161,90 +209,538 @@ String formatearPesos(int monto) {
   return buffer.toString();
 }
 
+String quitarTildes(String input) {
+  const conTilde = 'áéíóúüñÁÉÍÓÚÜÑ';
+  const sinTilde = 'aeiouunAEIOUUN';
+  String res = input;
+  for (int i = 0; i < conTilde.length; i++) {
+    res = res.replaceAll(conTilde[i], sinTilde[i]);
+  }
+  return res.toLowerCase();
+}
+
 // ==========================================
-// MOTOR DEEPSEEK OFFLINE (100% LOCAL Y FUNCIONAL)
+// MOTOR DE SUGERENCIAS PROACTIVAS Y VENTA CRUZADA
 // ==========================================
-class DeepSeekOfflineEngine {
-  static String generarMensajePersonalizado(Cliente c, String promoBase, int variacion) {
-    final nombreCorto = c.nombre.split('/').first.split('(').first.trim();
-    final saludos = [
-      'Hola $nombreCorto, ¿cómo va todo por el local?',
-      '¡Buenas $nombreCorto! Te escribo directo desde bodega.',
-      'Hola $nombreCorto, espero que estés teniendo una excelente semana de ventas.',
-      '¿Qué tal $nombreCorto? Te paso este dato antes de que se agote el lote.'
-    ];
+class SugerenciaInteligente {
+  final String titulo;
+  final String subtitulo;
+  final String accionTexto;
+  final IconData icono;
+  final Color color;
+  final Cliente? clienteObjetivo;
+  final String? promoSugerida;
+  final String? categoriaCampana;
 
-    final gancho = c.queCompra.isNotEmpty && !c.queCompra.toLowerCase().contains('pendiente')
-        ? 'Como sé que trabajas fuerte con *${c.queCompra.toLowerCase()}*, te reservé prioridad en esta oferta:'
-        : 'Nos acaba de entrar mercadería con margen ideal para tu negocio:';
+  SugerenciaInteligente({
+    required this.titulo,
+    required this.subtitulo,
+    required this.accionTexto,
+    required this.icono,
+    required this.color,
+    this.clienteObjetivo,
+    this.promoSugerida,
+    this.categoriaCampana,
+  });
+}
 
-    final extraVolumen = c.montoPromedio >= 1500000
-        ? '\n💼 *Precio especial por volumen/pallet disponible para tu cuenta.*'
-        : '';
+class MotorSugerenciasPro {
+  // Calcula qué producto complementario (Cross-Selling) ofrecerle a cada cliente
+  static String obtenerCrossSellParaCliente(Cliente c) {
+    final blob = quitarTildes('${c.queCompra} ${c.notas} ${c.categoria}');
 
-    final cierres = [
-      '¿Cuántas mangas/cajas te separo o prefieres que te llame en 5 minutos?',
-      'Avísame por acá qué cantidad te anoto para bloquearte el stock.',
-      'Si te sirve me confirmas por esta vía o te pego un llamado rápido.',
-    ];
-
-    final s = saludos[variacion % saludos.length];
-    final cierre = cierres[variacion % cierres.length];
-
-    return '$s\n\n$gancho\n\n🔥 *$promoBase*$extraVolumen\n\n$cierre';
+    if (blob.contains('corta fecha')) {
+      return 'Armar pack de liquidación rápida + pallet mixto de alta rotación';
+    }
+    if (blob.contains('chocolate')) {
+      return 'Sumar galletas por caja, confites de impulso y bebidas/energéticas Score';
+    }
+    if (blob.contains('queso')) {
+      return 'Ofrecer cecinas, bolsas camiseta/rollo y servilletas para fiambrería';
+    }
+    if (blob.contains('arroz') || blob.contains('azucar') || blob.contains('panaderia')) {
+      return 'Cruzar con aceite por caja, harina y mangas de toalla de papel absorbente';
+    }
+    if (blob.contains('agua') || blob.contains('bebida')) {
+      return 'Sumar energéticas Score por bandeja y snacks/papas por caja';
+    }
+    if (blob.contains('papel') && !blob.contains('detergente')) {
+      return 'Cross-Sell Aseo: Sumar bolsas de basura, detergente líquido y toalla nova (+25% ticket)';
+    }
+    if (blob.contains('aseo') || blob.contains('limpieza')) {
+      return 'Ofrecer mangas de papel higiénico (10x10) y cloro/desinfectantes por mayor';
+    }
+    if (c.categoria == 'Sin Clasificar') {
+      return 'Enviar catálogo gancho (Oferta Papel 4x500 + Abarrotes) para descubrir su rubro';
+    }
+    if (c.categoria == 'Facturación Reciente') {
+      return 'Agendar teléfono de recompra para convertir boleta/factura presencial en cliente recurrente';
+    }
+    return 'Ofrecer combo Mayorista: Pallets de Papel + Bebidas y Abarrotes de alta rotación';
   }
 
-  static String responderConsultaOffline(String pregunta, List<Cliente> clientes) {
-    final q = pregunta.toLowerCase().trim();
-    if (q.isEmpty) return 'Escribe una consulta sobre tu cartera o pide redactar una promoción.';
+  // Genera las tarjetas estratégicas del carrusel superior
+  static List<SugerenciaInteligente> generarJugadasDelDia(List<Cliente> cartera) {
+    final List<SugerenciaInteligente> jugadas = [];
+    final urgentes = cartera.where((c) => c.requiereAtencionUrgente && c.telefono.isNotEmpty).toList()
+      ..sort((a, b) => b.montoPromedio.compareTo(a.montoPromedio));
 
-    if (q.contains('corta fecha') || q.contains('vencimiento')) {
-      final lista = clientes.where((c) =>
-          c.queCompra.toLowerCase().contains('corta fecha') ||
-          c.notas.toLowerCase().contains('corta fecha')).toList();
-      return '🎯 *Clientes ideales para Corta Fecha (${lista.length}):*\n' +
-          lista.map((c) => '• *${c.nombre}* (${c.telefono}) - ${c.queCompra}').join('\n') +
-          '\n\n💡 *Sugerencia DeepSeek:* Lanza una campaña filtrando a Marcela y DIST Y COMER Santa Juana ofreciendo liquidación por lote cerrado.';
+    // 1. Rescate de Ballena #1
+    if (urgentes.isNotEmpty) {
+      final top = urgentes.first;
+      jugadas.add(
+        SugerenciaInteligente(
+          titulo: '🐋 Ballena en Riesgo: ${top.nombre.split('/').first.trim()}',
+          subtitulo:
+              'Mueve \$${formatearPesos(top.montoPromedio)} y lleva ${top.diasSinContacto} días sin contacto. ${obtenerCrossSellParaCliente(top)}.',
+          accionTexto: top.prefiereLlamada ? 'Llamar Ahora' : 'Enviar Oferta VIP',
+          icono: Icons.PriorityHigh,
+          color: const Color(0xFFEF4444),
+          clienteObjetivo: top,
+        ),
+      );
     }
 
-    if (q.contains('papel') || q.contains('higienico') || q.contains('higiénico') || q.contains('aseo') || q.contains('elite')) {
-      final lista = clientes.where((c) => c.categoria == 'Aseo y Papel').toList()
-        ..sort((a, b) => b.montoPromedio.compareTo(a.montoPromedio));
-      return '🧻 *Top Compradores de Aseo y Papel (${lista.length} clientes):*\n' +
-          lista.take(6).map((c) => '• *${c.nombre}*: \$${formatearPesos(c.montoPromedio)} (${c.queCompra})').join('\n') +
-          '\n\n💡 *Tip:* A Comercial ATH/Pedro ofrécele por sobre 100 mangas y a Ricardo Nuñez en múltiplos de 10 mangas.';
+    // 2. Oportunidad de Cross-Selling en Papel (Subir ticket a compradores de pallets)
+    final papelPuro = cartera
+        .where((c) =>
+            c.categoria == 'Aseo y Papel' &&
+            !quitarTildes(c.queCompra).contains('detergente') &&
+            c.montoPromedio >= 1000000)
+        .toList();
+    if (papelPuro.isNotEmpty) {
+      jugadas.add(
+        SugerenciaInteligente(
+          titulo: '📈 Venta Cruzada: Papel ➔ Detergente y Bolsas',
+          subtitulo:
+              'Tienes ${papelPuro.length} clientes grandes (como ${papelPuro.first.nombre.split('/').first.trim()}) que solo llevan papel. Ofréceles detergente, bolsas y toallas.',
+          accionTexto: 'Armar Campaña Aseo',
+          icono: Icons.trending_up,
+          color: const Color(0xFF10B981),
+          categoriaCampana: 'Aseo y Papel',
+          promoSugerida:
+              'Combo Mayorista Aseo: Por la compra de tus mangas/pallet de Papel Higiénico, lleva Detergente, Toalla y Bolsas a precio costo distribuidor',
+        ),
+      );
     }
 
-    if (q.contains('queso') || q.contains('bebida') || q.contains('chocolate') || q.contains('arroz')) {
-      final palabra = q.contains('queso') ? 'queso' : q.contains('bebida') ? 'bebida' : q.contains('chocolate') ? 'chocolate' : 'arroz';
-      final lista = clientes.where((c) =>
-          c.queCompra.toLowerCase().contains(palabra) ||
-          c.notas.toLowerCase().contains(palabra)).toList();
-      return '🔎 *Coincidencias exactas para "$palabra":*\n' +
-          (lista.isEmpty
-              ? 'No hay clientes con esa etiqueta específica, te sugiero ofrecerlo a Mayoristas / Surtido General.'
-              : lista.map((c) => '• *${c.nombre}* (${c.telefono}) -> ${c.queCompra} / ${c.notas}').join('\n'));
+    // 3. Ruta Geográfica Inteligente (Melipilla / Lampa / Quilicura)
+    final melipilla = cartera.where((c) => quitarTildes('${c.nombre} ${c.notas} ${c.queCompra}').contains('melipilla')).toList();
+    if (melipilla.isNotEmpty) {
+      jugadas.add(
+        SugerenciaInteligente(
+          titulo: '🚚 Consolidar Ruta Melipilla (${melipilla.length} clientes)',
+          subtitulo:
+              'Junta los pedidos de ${melipilla.map((e) => e.nombre.split('(').first.trim()).join(' y ')} en un solo flete sobre \$1.800.000.',
+          accionTexto: 'Contactar Ruta',
+          icono: Icons.local_shipping,
+          color: const Color(0xFF38BDF8),
+          clienteObjetivo: melipilla.first,
+        ),
+      );
     }
 
-    if (q.contains('llamar') || q.contains('urgente') || q.contains('hoy') || q.contains('riesgo') || q.contains('ballena')) {
-      final urgentes = clientes.where((c) => c.requiereAtencionUrgente).toList()
-        ..sort((a, b) => b.montoPromedio.compareTo(a.montoPromedio));
-      final total = urgentes.fold<int>(0, (s, c) => s + c.montoPromedio);
-      return '🚨 *Plan de Llamadas Hoy (${urgentes.length} pendientes | \$${formatearPesos(total)} en juego):*\n\n' +
-          urgentes.take(6).map((c) => '• *${c.nombre}* (\$${formatearPesos(c.montoPromedio)}) - Hace ${c.diasSinContacto} días sin contacto ${c.prefiereLlamada ? "[LLAMAR DIRECTO]" : ""}').join('\n');
+    // 4. Cazador Rápido de Corta Fecha
+    final cortaFecha = cartera.where((c) => quitarTildes('${c.queCompra} ${c.notas}').contains('corta fecha')).toList();
+    if (cortaFecha.isNotEmpty) {
+      jugadas.add(
+        SugerenciaInteligente(
+          titulo: '⚡ Liquidación Rápida (Corta Fecha)',
+          subtitulo:
+              '${cortaFecha.map((e) => e.nombre).join(' y ')} compran lotes a corta fecha al contado. Ideal para limpiar bodega hoy.',
+          accionTexto: 'Ofrecer Lote',
+          icono: Icons.flash_on,
+          color: const Color(0xFFF59E0B),
+          clienteObjetivo: cortaFecha.first,
+        ),
+      );
     }
 
-    if (q.contains('redact') || q.contains('mensaje') || q.contains('promo')) {
-      return '✍️ *Propuesta de Copywriting Mayorista (Anti-Spam):*\n\n"¡Hola [Nombre]! Te escribo rápido desde bodega porque acaba de entrar lote nuevo en oferta cerrada. Te reservé cupo a precio mayorista antes de subirlo a piso. ¿Te separo un par de mangas/cajas o te pego una llamada corta?"';
+    return jugadas;
+  }
+}
+
+// ==========================================
+// AGENTE CONVERSACIONAL DEEPSEEK V4 (FUZZY NLU + ESTRATEGIAS)
+// ==========================================
+class RespuestaDeepSeek {
+  final String pensamiento;
+  final String respuesta;
+  final Cliente? clienteRelacionado;
+  final String? promoParaCampana;
+  final String? categoriaParaCampana;
+
+  RespuestaDeepSeek({
+    required this.pensamiento,
+    required this.respuesta,
+    this.clienteRelacionado,
+    this.promoParaCampana,
+    this.categoriaParaCampana,
+  });
+}
+
+class DeepSeekConversationalAgent {
+  static Cliente? ultimoClienteEnContexto;
+  static final Random _rng = Random();
+
+  // Similitud por bigramas (Sørensen-Dice) para entender nombres mal escritos ("weiz", "bonasic", "cristofer")
+  static double _similitudTexto(String s1, String s2) {
+    final a = quitarTildes(s1).replaceAll(' ', '');
+    final b = quitarTildes(s2).replaceAll(' ', '');
+    if (a == b) return 1.0;
+    if (a.length < 2 || b.length < 2) return 0.0;
+
+    final bigramasA = <String>{};
+    for (int i = 0; i < a.length - 1; i++) {
+      bigramasA.add(a.substring(i, i + 2));
+    }
+    final bigramasB = <String>{};
+    for (int i = 0; i < b.length - 1; i++) {
+      bigramasB.add(b.substring(i, i + 2));
     }
 
-    final totalCartera = clientes.fold<int>(0, (s, c) => s + c.montoPromedio);
-    final vip = clientes.where((c) => c.montoPromedio >= 1500000).length;
-    return '🧠 *Análisis DeepSeek Local (Sin Internet):*\n'
-        '• Valor estimado mensual de tu cartera: *\$${formatearPesos(totalCartera)}*\n'
-        '• Clientes Ballena (+1.5M): *$vip clientes*\n'
-        '• Clientes esperando contacto hoy: *${clientes.where((c) => c.requiereAtencionUrgente).length}*\n\n'
-        'Pregúntame por productos específicos (ej: *"¿Quién compra corta fecha?"*, *"¿A quién le vendo papel?"*, *"¿A quién debo llamar hoy?"*).';
+    int interseccion = 0;
+    for (final bg in bigramasA) {
+      if (bigramasB.contains(bg)) interseccion++;
+    }
+    return (2.0 * interseccion) / (bigramasA.length + bigramasB.length);
+  }
+
+  static String generarMensajeWhatsApp(Cliente c, String promoBase, int variacion, {bool incluirCrossSell = false}) {
+    final nombreCorto = c.nombre.split('/').first.split('(').first.trim();
+    final saludos = [
+      '¡Hola $nombreCorto! ¿Cómo va todo por el negocio?',
+      '¡Buenas $nombreCorto! Te escribo directo desde bodega.',
+      'Hola $nombreCorto, ¿qué tal la semana? Paso a dejarte un dato clave:',
+      '¡Wena $nombreCorto! Te aviso antes de que se agote este lote en bodega:'
+    ];
+
+    final tieneCompraEspecifica =
+        c.queCompra.isNotEmpty && !c.queCompra.toLowerCase().contains('pendiente');
+    final gancho = tieneCompraEspecifica
+        ? 'Como sé que mueves fuerte *${c.queCompra.toLowerCase()}*, te reservé prioridad en esta promo:'
+        : 'Nos acaba de entrar mercadería con excelente margen para tu local:';
+
+    final crossSell = incluirCrossSell
+        ? '\n💡 *Dato extra para tu pedido:* Aprovecha de sumar *${MotorSugerenciasPro.obtenerCrossSellParaCliente(c).toLowerCase()}* a precio de distribuidor.'
+        : (c.montoPromedio >= 1500000
+            ? '\n📦 *Precio especial por pallet/volumen aplicado para tu cuenta.*'
+            : '');
+
+    final cierres = [
+      '¿Cuántas mangas o cajas te anoto, o prefieres que te pegue una llamada en 5 minutos?',
+      'Avísame por acá qué cantidad te separo para bloquearte el stock hoy.',
+      'Si te acomoda me confirmas por acá o te llamo altiro para coordinar.',
+    ];
+
+    return '${saludos[variacion % saludos.length]}\n\n$gancho\n\n🔥 *$promoBase*$crossSell\n\n${cierres[variacion % cierres.length]}';
+  }
+
+  static Future<RespuestaDeepSeek> conversar({
+    required String inputUsuario,
+    required List<Cliente> cartera,
+    String apiKey = '',
+    String apiEndpoint = 'https://api.deepseek.com/v1/chat/completions',
+  }) async {
+    final limpio = quitarTildes(inputUsuario.trim());
+
+    // 1. Conector API / Localhost (si el usuario activó servidor externo o API Key)
+    if (apiKey.trim().isNotEmpty || apiEndpoint.contains('127.0.0.1') || apiEndpoint.contains('localhost')) {
+      try {
+        final resumenCartera = cartera
+            .map((c) =>
+                '${c.nombre} (RUT:${c.rut}, Tel:${c.telefono}, Rubro:${c.categoria}, Compra:${c.queCompra}, Prom:\$${c.montoPromedio}, SinContacto:${c.diasSinContacto}d, CrossSell:${MotorSugerenciasPro.obtenerCrossSellParaCliente(c)})')
+            .join(' | ');
+        final resp = await http
+            .post(
+              Uri.parse(apiEndpoint),
+              headers: {
+                'Content-Type': 'application/json',
+                if (apiKey.isNotEmpty) 'Authorization': 'Bearer $apiKey',
+              },
+              body: jsonEncode({
+                'model': 'deepseek-chat',
+                'messages': [
+                  {
+                    'role': 'system',
+                    'content':
+                        'Eres DeepSeek, el socio comercial experto, agudo y natural de Cristóbal en Santiago de Chile. Hablas con naturalidad, humor inteligente y precisión comercial. Tienes acceso a sus ${cartera.length} clientes: $resumenCartera'
+                  },
+                  {'role': 'user', 'content': inputUsuario}
+                ],
+                'temperature': 0.7,
+              }),
+            )
+            .timeout(const Duration(seconds: 12));
+
+        if (resp.statusCode == 200) {
+          final decoded = jsonDecode(utf8.decode(resp.bodyBytes));
+          final content = decoded['choices']?[0]?['message']?['content'] ?? '';
+          if (content.toString().isNotEmpty) {
+            return RespuestaDeepSeek(
+              pensamiento: 'Inferencia neuronal ejecutada sobre ${cartera.length} clientes.',
+              respuesta: content.toString(),
+            );
+          }
+        }
+      } catch (_) {}
+    }
+
+    // 2. CEREBRO SEMÁNTICO LOCAL DEEPSEEK-R1 V4 (100% OFFLINE)
+    final hora = DateTime.now().hour;
+    final saludoHora = hora < 12 ? 'buenos días' : (hora < 20 ? 'buenas tardes' : 'buenas noches');
+    final urgentes = cartera.where((c) => c.requiereAtencionUrgente).toList()
+      ..sort((a, b) => b.montoPromedio.compareTo(a.montoPromedio));
+    final ballenaTop = urgentes.isNotEmpty ? urgentes.first : cartera.first;
+
+    // A) SALUDOS Y CHARLA NATURAL
+    final esSaludo = RegExp(
+            r'^(hola+|holaa+|wena+|buenas+|buenos dias|buenas tardes|buenas noches|que tal|como estas|como va|hey|alo|habla|que pasa|que onda)[\s!?.]*$')
+        .hasMatch(limpio);
+
+    if (esSaludo || limpio == 'hola deepseek' || limpio == 'wena hermano') {
+      final respuestasSaludo = [
+        '¡Wena Cristóbal! ¿Cómo se viene la jornada? Ya estuve escaneando los *${cartera.length} clientes* de tu Excel y te tengo una jugada lista: *${ballenaTop.nombre}* mueve *\$${formatearPesos(ballenaTop.montoPromedio)}* y lleva ${ballenaTop.diasSinContacto} días en silencio. Además de lo que siempre lleva (${ballenaTop.queCompra.toLowerCase()}), hoy podríamos meterle *${MotorSugerenciasPro.obtenerCrossSellParaCliente(ballenaTop).toLowerCase()}*. ¿Le damos o buscas otro dato?',
+        '¡Hola Cristóbal, $saludoHora! Aquí estamos con el motor al 100% y sin gastar un peso de internet. Tienes *${urgentes.length} clientes* listos para recompra hoy. Dime qué mercadería tienes parada en bodega o de qué cliente quieres que te arme una estrategia.',
+        '¡Buenas! ¿Cómo va ese ánimo? Oye, estaba viendo que entre *Sra. Margarita*, *Edisson Bonacic* y *Comercial Nietos* tienes casi \$9 millones en juego. ¿Quieres que te arme un mensaje matador para despertarlos o revisamos alguna comuna en particular?',
+      ];
+      ultimoClienteEnContexto = ballenaTop;
+      return RespuestaDeepSeek(
+        pensamiento:
+            'Saludo natural detectado ($saludoHora). Cruzando métricas de los ${cartera.length} clientes para proponer una acción inmediata de alto retorno.',
+        respuesta: respuestasSaludo[_rng.nextInt(respuestasSaludo.length)],
+        clienteRelacionado: ballenaTop,
+      );
+    }
+
+    // B) PEDIDOS DE SUGERENCIAS, IDEAS PARA VENDER MÁS O ESTRATEGIAS
+    if (limpio.contains('sugerencia') ||
+        limpio.contains('idea') ||
+        limpio.contains('estrategia') ||
+        limpio.contains('vender mas') ||
+        limpio.contains('subir ventas') ||
+        limpio.contains('que me recomiendas') ||
+        limpio.contains('que hacemos')) {
+      return RespuestaDeepSeek(
+        pensamiento:
+            'Analizando brechas de facturación (Cross-Selling, retención de ballenas y consolidación de fletes) en los ${cartera.length} clientes.',
+        respuesta:
+            'Te armé **3 jugadas estratégicas** basadas en los datos reales de tu Excel para facturar rápido hoy:\n\n'
+            '1. **Venta Cruzada en Aseo (+25% por pedido):** Tienes clientes como *Comercial ATH / Pedro* (\$2.5M), *Agrolatino* (\$1.2M), *Josep Silva* y *Felipe Lobos* que compran pallets de papel, pero no te están llevando bolsas, detergente ni toalla como *Andres Albarracin*.\n'
+            '2. **Combo Ruta Melipilla:** *Jocelyn Hernandez* (\$1.2M, compra los lunes) y *Luis Silva* (\$650k, despacho a Melipilla) suman \$1.850.000. Si los contactas juntos hoy, llenas el camión en un solo viaje.\n'
+            '3. **Despertar a las 3 Ballenas de \$3 Millones:** *Sra. Margarita* (Playa) y *Edisson Bonacic Rojas* están pasados de su ciclo. Un llamado de 2 minutos ahí vale más que 15 clientes chicos.\n\n'
+            'Toca el botón de abajo si quieres cargar altiro la **Campaña de Venta Cruzada de Aseo** o llamar a *${ballenaTop.nombre}*.',
+        clienteRelacionado: ballenaTop,
+        promoParaCampana:
+            'Especial Mayorista: Suma a tu pedido de Papel Higiénico nuestro pack de Detergente, Bolsas y Toalla Absorbente con descuento por volumen',
+        categoriaParaCampana: 'Aseo y Papel',
+      );
+    }
+
+    // C) BÚSQUEDA DIFUSA DE CLIENTE (EXACTA + TOLERANTE A ERRORES ORTOGRÁFICOS)
+    Cliente? clienteDetectado;
+    double mejorScore = 0.0;
+    final palabrasInput = limpio
+        .replaceAll(RegExp(r'[^a-z0-9\s]'), ' ')
+        .split(RegExp(r'\s+'))
+        .where((w) => w.length >= 3 && !['quien', 'como', 'donde', 'cuanto', 'cual', 'para', 'hola', 'dime', 'cliente', 'clientes', 'compra', 'vende', 'tiene', 'numero', 'telefono', 'llamar', 'mensaje'].contains(w))
+        .toList();
+
+    for (final c in cartera) {
+      final nomLimpio = quitarTildes(c.nombre);
+      double score = 0.0;
+      if (limpio.contains(nomLimpio)) score += 15.0;
+
+      final tokensCliente = nomLimpio
+          .replaceAll(RegExp(r'[^a-z0-9\s]'), ' ')
+          .split(RegExp(r'\s+'))
+          .where((t) => t.length >= 3 && !['spa', 'eirl', 'ltda', 'local', 'minimarket', 'almacen', 'comercial', 'santa'].contains(t))
+          .toList();
+
+      for (final tk in tokensCliente) {
+        if (limpio.contains(tk)) {
+          score += 6.0;
+        } else {
+          for (final p in palabrasInput) {
+            final sim = _similitudTexto(p, tk);
+            if (sim >= 0.72) score += sim * 5.0;
+          }
+        }
+      }
+
+      if (c.rut.isNotEmpty && limpio.contains(c.rut.replaceAll('.', '').toLowerCase())) {
+        score += 15.0;
+      }
+
+      if (score > mejorScore && score >= 3.8) {
+        mejorScore = score;
+        clienteDetectado = c;
+      }
+    }
+
+    // Memoria de contexto si dice "hazle un mensaje", "llamalo", "que ofrecerle", "su numero"
+    if (clienteDetectado == null &&
+        ultimoClienteEnContexto != null &&
+        (limpio.contains('su ') ||
+            limpio.contains('ese ') ||
+            limpio.contains('hazle') ||
+            limpio.contains('redactale') ||
+            limpio.contains('escribele') ||
+            limpio.contains('ofrecerle') ||
+            limpio.contains('llamalo'))) {
+      clienteDetectado = ultimoClienteEnContexto;
+    }
+
+    if (clienteDetectado != null) {
+      ultimoClienteEnContexto = clienteDetectado;
+      final c = clienteDetectado;
+      final crossSell = MotorSugerenciasPro.obtenerCrossSellParaCliente(c);
+
+      if (limpio.contains('mensaje') || limpio.contains('redact') || limpio.contains('whatsapp') || limpio.contains('escrib') || limpio.contains('guion')) {
+        final msg = generarMensajeWhatsApp(
+          c,
+          'Lote preferencial de ${c.queCompra.isNotEmpty ? c.queCompra : "mercadería mayorista"} a precio de pallet',
+          _rng.nextInt(4),
+          incluirCrossSell: true,
+        );
+        return RespuestaDeepSeek(
+          pensamiento:
+              'Generando copywriting con Venta Cruzada integrada para ${c.nombre} (Ticket: \$${formatearPesos(c.montoPromedio)}).',
+          respuesta:
+              'Te armé este mensaje con gancho de venta cruzada para *${c.nombre}*:\n\n'
+              '“$msg”\n\n'
+              'Toca *Enviar WhatsApp* aquí abajo y se abre su chat con el texto listo.',
+          clienteRelacionado: c,
+        );
+      }
+
+      final alertaTiempo = c.requiereAtencionUrgente
+          ? '🚨 *Alerta de Ciclo:* Lleva *${c.diasSinContacto} días* sin contacto (su ciclo es de ${c.cicloDias}d). ¡Contáctalo hoy!'
+          : '✅ *Al día:* Hablaron hace ${c.diasSinContacto} días (ciclo de ${c.cicloDias}d).';
+
+      return RespuestaDeepSeek(
+        pensamiento:
+            'Ficha encontrada para "${c.nombre}" (Score de coincidencia: ${mejorScore.toStringAsFixed(1)}). Calculando estrategia de Cross-Selling.',
+        respuesta:
+            'Aquí tienes la radiografía completa y estrategia para *${c.nombre}*:\n\n'
+            '• *Rubro:* ${c.categoria}\n'
+            '• *RUT:* ${c.rut.isNotEmpty ? c.rut : "Pendiente"}\n'
+            '• *Teléfono:* ${c.telefono.isNotEmpty ? c.telefono : "Sin registrar"}${c.telefonoSecundario.isNotEmpty ? " | Tel 2: ${c.telefonoSecundario}" : ""}\n'
+            '• *Compra habitual:* ${c.queCompra}\n'
+            '• *Ticket promedio:* \$${formatearPesos(c.montoPromedio)}\n'
+            '• *Notas:* ${c.notas}\n\n'
+            '💡 *Sugerencia IA para subirle la venta:* $crossSell.\n\n'
+            '$alertaTiempo',
+        clienteRelacionado: c,
+      );
+    }
+
+    // D) CONSULTAS POR COMUNA / RUTA
+    final comunas = ['melipilla', 'lampa', 'quilicura', 'pirque', 'rancagua', 'ovalle', 'playa', 'casa blanca', 'mersan', 'feria'];
+    for (final com in comunas) {
+      if (limpio.contains(com)) {
+        final encontrados = cartera.where((c) {
+          final todo = quitarTildes('${c.nombre} ${c.queCompra} ${c.notas} ${c.categoria}');
+          return todo.contains(com);
+        }).toList();
+
+        if (encontrados.isNotEmpty) {
+          ultimoClienteEnContexto = encontrados.first;
+          final sumaZona = encontrados.fold<int>(0, (s, c) => s + c.montoPromedio);
+          final detalle = encontrados
+              .map((c) =>
+                  '• *${c.nombre}* (${c.telefono.isNotEmpty ? c.telefono : "Sin tel"}) ➔ ${c.queCompra} [\$${formatearPesos(c.montoPromedio)}]')
+              .join('\n');
+          return RespuestaDeepSeek(
+            pensamiento:
+                'Agrupando ruta logística para "$com": ${encontrados.length} clientes suman \$${formatearPesos(sumaZona)}.',
+            respuesta:
+                'En la ruta *${com.toUpperCase()}* tienes ${encontrados.length} clientes que suman *\$${formatearPesos(sumaZona)}* en potencial:\n\n$detalle\n\n'
+                '💡 *Jugada recomendada:* Contacta primero a *${encontrados.first.nombre}* para asegurar la base del flete y luego ofrece cupo en el camión al resto.',
+            clienteRelacionado: encontrados.first,
+          );
+        }
+      }
+    }
+
+    // E) CONSULTAS POR PRODUCTOS ESPECÍFICOS
+    final mapaProductos = <String, List<String>>{
+      'Corta Fecha / Liquidación': ['corta fecha', 'vencimiento', 'liquidacion'],
+      'Papel Higiénico / Toallas / Mangas': ['papel', 'higienico', 'toalla', 'servilleta', 'elite', 'manga'],
+      'Artículos de Aseo y Limpieza': ['aseo', 'limpieza', 'detergente', 'cloro', 'bolsa', 'perfumeria'],
+      'Bebidas, Agua y Energéticas (Score)': ['bebida', 'agua', 'score', 'bebestible', 'jugo'],
+      'Queso Despunte y Fiambrería': ['queso', 'despunte', 'cecina', 'carniceria'],
+      'Arroz, Azúcar y Abarrotes por Pallet': ['arroz', 'azucar', 'abarrote', 'panaderia'],
+      'Chocolates y Confites': ['chocolate', 'dulce', 'confite'],
+      'Compras por Pallet Cerrado': ['pallet', 'palet'],
+    };
+
+    for (final entry in mapaProductos.entries) {
+      if (entry.value.any((kw) => limpio.contains(kw))) {
+        final coincidencias = cartera.where((c) {
+          final blob = quitarTildes('${c.queCompra} ${c.notas} ${c.categoria}');
+          return entry.value.any((kw) => blob.contains(kw));
+        }).toList()
+          ..sort((a, b) => b.montoPromedio.compareTo(a.montoPromedio));
+
+        if (coincidencias.isNotEmpty) {
+          ultimoClienteEnContexto = coincidencias.first;
+          final topLista = coincidencias
+              .take(8)
+              .map((c) => '• *${c.nombre}* (\$${formatearPesos(c.montoPromedio)}) ➔ ${c.queCompra}')
+              .join('\n');
+          return RespuestaDeepSeek(
+            pensamiento:
+                'Filtrando los mejores compradores para "${entry.key}" entre los ${cartera.length} registros.',
+            respuesta:
+                'Para vender *${entry.key}* hoy mismo, aquí tienes a tus *${coincidencias.length} compradores directos* ordenados por volumen de plata:\n\n$topLista\n\n'
+                '💡 *Sugerencia:* Parte por *${coincidencias.first.nombre}* (\$${formatearPesos(coincidencias.first.montoPromedio)}) o lanza una campaña directa con el botón de abajo.',
+            clienteRelacionado: coincidencias.first,
+            promoParaCampana: 'Llegó lote nuevo de ${entry.key} a precio mayorista por manga/pallet. Cupos limitados en bodega',
+            categoriaParaCampana: coincidencias.first.categoria,
+          );
+        }
+      }
+    }
+
+    // F) RANKING DE LLAMADAS URGENTES / BALLENAS
+    if (limpio.contains('llamar') ||
+        limpio.contains('urgente') ||
+        limpio.contains('hoy') ||
+        limpio.contains('ballena') ||
+        limpio.contains('millon') ||
+        limpio.contains('prioridad') ||
+        limpio.contains('atrasad')) {
+      final topUrgentes = urgentes.take(7).toList();
+      final montoRiesgo = urgentes.fold<int>(0, (s, c) => s + c.montoPromedio);
+      ultimoClienteEnContexto = topUrgentes.isNotEmpty ? topUrgentes.first : null;
+
+      final listado = topUrgentes
+          .map((c) =>
+              '• *${c.nombre}* (\$${formatearPesos(c.montoPromedio)}) — Hace ${c.diasSinContacto}d sin contacto ${c.prefiereLlamada ? "📞 [Llamar]" : "💬"}')
+          .join('\n');
+
+      return RespuestaDeepSeek(
+        pensamiento:
+            'Priorizando ${urgentes.length} clientes fuera de ciclo por impacto financiero (\$${formatearPesos(montoRiesgo)}).',
+        respuesta:
+            'Aquí tienes tu **Hoja de Ruta de Hoy** (${urgentes.length} clientes pasados de fecha que suman *\$${formatearPesos(montoRiesgo)}*):\n\n$listado\n\n'
+            'El más rentable para atacar ahora mismo es *${topUrgentes.first.nombre}* (${MotorSugerenciasPro.obtenerCrossSellParaCliente(topUrgentes.first)}).',
+        clienteRelacionado: topUrgentes.first,
+      );
+    }
+
+    // G) RESPUESTA CONVERSACIONAL INTELIGENTE ABIERTA
+    final sugerido = urgentes.isNotEmpty ? urgentes[_rng.nextInt(min(5, urgentes.length))] : cartera.first;
+    ultimoClienteEnContexto = sugerido;
+    return RespuestaDeepSeek(
+      pensamiento:
+          'Procesando conversación abierta: "$inputUsuario". Vinculando con oportunidad comercial en vivo.',
+      respuesta:
+          'Te escucho, Cristóbal. Mira, cruzando lo que me dices con tus *${cartera.length} clientes*, una jugada redonda para hacer caja hoy es escribirle o llamar a *${sugerido.nombre}* (${sugerido.categoria}), que mueve *\$${formatearPesos(sugerido.montoPromedio)}* en *${sugerido.queCompra.toLowerCase()}* y además podemos ofrecerle *${MotorSugerenciasPro.obtenerCrossSellParaCliente(sugerido).toLowerCase()}*.\n\n'
+          'También puedes preguntarme cosas como *"dame una estrategia para subir ventas"*, *"clientes de Melipilla"*, *"quién compra chocolates"* o el nombre de cualquier cliente.',
+      clienteRelacionado: sugerido,
+    );
   }
 
   static Cliente extraerClienteDesdeNotaCaotica(String textoBruto) {
@@ -267,11 +763,11 @@ class DeepSeekOfflineEngine {
       }
     }
 
-    final lower = textoBruto.toLowerCase();
+    final lower = quitarTildes(textoBruto);
     String categoria = 'Mayoristas / Surtido General';
     if (lower.contains('papel') || lower.contains('aseo') || lower.contains('higienico') || lower.contains('toalla') || lower.contains('detergente')) {
       categoria = 'Aseo y Papel';
-    } else if (lower.contains('abarrote') || lower.contains('almacen') || lower.contains('arroz') || lower.contains('queso') || lower.contains('bebida') || lower.contains('chocolate')) {
+    } else if (lower.contains('abarrote') || lower.contains('almacen') || lower.contains('arroz') || lower.contains('queso') || lower.contains('bebida') || lower.contains('chocolate') || lower.contains('agua')) {
       categoria = 'Abarrotes y Alimentos';
     } else if (lower.contains('feria')) {
       categoria = 'Clientes de Feria';
@@ -292,14 +788,32 @@ class DeepSeekOfflineEngine {
       categoria: categoria,
       queCompra: textoBruto.trim(),
       montoPromedio: monto,
-      notas: 'Extraído automáticamente con IA Offline',
+      notas: 'Extraído automáticamente con IA DeepSeek',
       prefiereLlamada: lower.contains('llamar'),
     );
   }
 }
 
+class MensajeChatIA {
+  final bool esUsuario;
+  final String pensamiento;
+  final String texto;
+  final Cliente? clienteAccion;
+  final String? promoSugerida;
+  final String? categoriaSugerida;
+
+  MensajeChatIA({
+    required this.esUsuario,
+    this.pensamiento = '',
+    required this.texto,
+    this.clienteAccion,
+    this.promoSugerida,
+    this.categoriaSugerida,
+  });
+}
+
 // ==========================================
-// DASHBOARD PRINCIPAL (5 PESTAÑAS FLUIDAS)
+// DASHBOARD PRINCIPAL ULTRA-FLUIDO (V4)
 // ==========================================
 class MainDashboard extends StatefulWidget {
   const MainDashboard({super.key});
@@ -310,11 +824,14 @@ class MainDashboard extends StatefulWidget {
 
 class _MainDashboardState extends State<MainDashboard> {
   static const platform = MethodChannel('com.cristobal.crm/accessibility');
+  static const String _storageKey = 'clientes_crm_v4_master_61';
+
   int _tabIndex = 0;
   List<Cliente> _clientes = [];
   String _filtroCategoria = 'Todos';
   String _busqueda = '';
   bool _accesibilidadActiva = false;
+  bool _mostrarCarruselIA = true;
 
   // Estudio Creador de Promociones (Flyer)
   final GlobalKey _flyerKey = GlobalKey();
@@ -332,14 +849,20 @@ class _MainDashboardState extends State<MainDashboard> {
       text: 'PAPEL HIGIÉNICO ELITE en oferta \$4.500 (Formato Mayorista / Pallet)');
   String _categoriaCampana = 'Aseo y Papel';
   bool _adjuntarAficheEnCampana = true;
+  bool _incluirCrossSellEnCampana = true;
   bool _campanaCorriendo = false;
   int _progresoCampana = 0;
   String _estadoCampanaTexto = 'Listo para iniciar';
 
-  // DeepSeek Offline Chat & Parser
+  // DeepSeek Chat & Streaming
   final TextEditingController _chatIaCtrl = TextEditingController();
   final TextEditingController _notaCaoticaCtrl = TextEditingController();
-  final List<Map<String, String>> _mensajesIA = [];
+  final ScrollController _chatScrollCtrl = ScrollController();
+  final List<MensajeChatIA> _historialChat = [];
+  bool _iaPensando = false;
+  String _textoStreaming = '';
+  String _apiKeyDeepSeek = '';
+  String _apiEndpointDeepSeek = 'https://api.deepseek.com/v1/chat/completions';
   bool _descargandoModelo = false;
   double _progresoModelo = 0.0;
   bool _modeloGGUFInstalado = false;
@@ -355,7 +878,11 @@ class _MainDashboardState extends State<MainDashboard> {
 
   Future<void> _cargarDatos() async {
     final prefs = await SharedPreferences.getInstance();
-    final data = prefs.getString('clientes_crm_v2');
+    _apiKeyDeepSeek = prefs.getString('deepseek_api_key') ?? '';
+    _apiEndpointDeepSeek =
+        prefs.getString('deepseek_endpoint') ?? 'https://api.deepseek.com/v1/chat/completions';
+
+    final data = prefs.getString(_storageKey);
     if (data != null) {
       final List decoded = jsonDecode(data);
       setState(() {
@@ -363,22 +890,38 @@ class _MainDashboardState extends State<MainDashboard> {
       });
     } else {
       setState(() {
-        _clientes = List.from(clientesSemilla);
+        _clientes = construirCarteraMaestra61();
       });
       await _guardarDatos();
     }
-    if (_mensajesIA.isEmpty) {
-      _mensajesIA.add({
-        'rol': 'ia',
-        'texto': DeepSeekOfflineEngine.responderConsultaOffline('resumen', _clientes)
-      });
+
+    if (_historialChat.isEmpty) {
+      final urgentes = _clientes.where((c) => c.requiereAtencionUrgente).length;
+      _historialChat.add(
+        MensajeChatIA(
+          esUsuario: false,
+          pensamiento:
+              'Motor V4 activo: 61 clientes portados (Hoja 1 + Hoja 2 + Facturas) y sugerencias de Venta Cruzada calculadas.',
+          texto:
+              '¡Wena Cristóbal! Ya tienes la **Versión 4.0** corriendo con tus *${_clientes.length} clientes* del Excel y el motor de *Venta Cruzada (Cross-Selling)* activado en cada tarjeta. Tienes *$urgentes clientes* listos para recompra hoy.\n\nHáblame normal o pídele ideas a la IA: *"dame una estrategia para vender más hoy"*, *"¿quién es Jesús Peña?"* o *"clientes de Melipilla"*.',
+        ),
+      );
     }
   }
 
   Future<void> _guardarDatos() async {
     final prefs = await SharedPreferences.getInstance();
     final encoded = jsonEncode(_clientes.map((c) => c.toJson()).toList());
-    await prefs.setString('clientes_crm_v2', encoded);
+    await prefs.setString(_storageKey, encoded);
+  }
+
+  Future<void> _restaurarCartera61Excel() async {
+    HapticFeedback.mediumImpact();
+    setState(() {
+      _clientes = construirCarteraMaestra61();
+    });
+    await _guardarDatos();
+    _mostrarSnack('✅ ¡61 clientes del Excel sincronizados con éxito!');
   }
 
   Future<void> _verificarAccesibilidad() async {
@@ -401,13 +944,15 @@ class _MainDashboardState extends State<MainDashboard> {
     await _guardarDatos();
   }
 
-  Future<void> _llamarCliente(Cliente c) async {
-    if (c.telefono.isEmpty) {
-      _mostrarSnack('Este cliente no tiene teléfono registrado. Tócalo para editarlo.');
+  Future<void> _llamarCliente(Cliente c, {String? telefonoEspecifico}) async {
+    final fono = telefonoEspecifico ?? c.telefono;
+    if (fono.isEmpty) {
+      _mostrarSnack('Este cliente no tiene teléfono registrado. Tócalo para agregarlo.');
       return;
     }
+    HapticFeedback.lightImpact();
     await _marcarContactado(c);
-    final uri = Uri.parse('tel:${c.telefono}');
+    final uri = Uri.parse('tel:$fono');
     if (await canLaunchUrl(uri)) {
       await launchUrl(uri);
     }
@@ -418,16 +963,22 @@ class _MainDashboardState extends State<MainDashboard> {
     String? mensajePersonalizado,
     bool autoClick = false,
     String? imagePath,
+    bool incluirCrossSell = true,
   }) async {
     if (c.telefono.isEmpty) {
       _mostrarSnack('Agrega un teléfono a ${c.nombre} antes de enviar WhatsApp.');
       return;
     }
+    HapticFeedback.lightImpact();
     await _marcarContactado(c);
     final numLimpio = c.telefono.replaceAll(RegExp(r'[^0-9]'), '');
     final msg = mensajePersonalizado ??
-        DeepSeekOfflineEngine.generarMensajePersonalizado(
-            c, _promoCtrl.text, Random().nextInt(10));
+        DeepSeekConversationalAgent.generarMensajeWhatsApp(
+          c,
+          _promoCtrl.text,
+          Random().nextInt(10),
+          incluirCrossSell: incluirCrossSell,
+        );
 
     if (imagePath != null && File(imagePath).existsSync()) {
       try {
@@ -454,6 +1005,115 @@ class _MainDashboardState extends State<MainDashboard> {
       final webUri = Uri.parse('https://wa.me/$numLimpio?text=${Uri.encodeComponent(msg)}');
       await launchUrl(webUri, mode: LaunchMode.externalApplication);
     }
+  }
+
+  // Modal instantáneo de Guion IA + Venta Cruzada para cualquier cliente
+  void _mostrarGuionIACliente(Cliente c) {
+    final crossSell = MotorSugerenciasPro.obtenerCrossSellParaCliente(c);
+    final msgWhatsApp = DeepSeekConversationalAgent.generarMensajeWhatsApp(
+      c,
+      _promoCtrl.text,
+      Random().nextInt(4),
+      incluirCrossSell: true,
+    );
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: const Color(0xFF131C2E),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
+      ),
+      builder: (ctx) => Padding(
+        padding: const EdgeInsets.all(18),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.auto_awesome, color: Color(0xFF10B981)),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Estrategia IA para ${c.nombre}',
+                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: const Color(0xFF070B12),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: const Color(0xFF10B981).withOpacity(0.4)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('🛒 Compra actual: ${c.queCompra} (\$${formatearPesos(c.montoPromedio)})',
+                      style: const TextStyle(fontSize: 12.5, color: Colors.white70)),
+                  const SizedBox(height: 6),
+                  Text('💡 Oportunidad de Venta Cruzada:\n$crossSell',
+                      style: const TextStyle(
+                          fontSize: 13.5, fontWeight: FontWeight.bold, color: Color(0xFF10B981))),
+                ],
+              ),
+            ),
+            const SizedBox(height: 10),
+            const Text('Mensaje sugerido con venta cruzada:',
+                style: TextStyle(fontSize: 12, color: Colors.white60)),
+            const SizedBox(height: 4),
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: Colors.black26,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Text(msgWhatsApp, style: const TextStyle(fontSize: 12.5, height: 1.35)),
+            ),
+            const SizedBox(height: 14),
+            Row(
+              children: [
+                Expanded(
+                  child: ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF26334D),
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                    ),
+                    onPressed: () {
+                      Navigator.pop(ctx);
+                      _llamarCliente(c);
+                    },
+                    icon: const Icon(Icons.phone),
+                    label: const Text('Llamar Ahora'),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF10B981),
+                      foregroundColor: Colors.black,
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                    ),
+                    onPressed: () {
+                      Navigator.pop(ctx);
+                      _escribirWhatsApp(c, mensajePersonalizado: msgWhatsApp);
+                    },
+                    icon: const Icon(Icons.send),
+                    label: const Text('Enviar WhatsApp',
+                        style: TextStyle(fontWeight: FontWeight.bold)),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   // ==========================================
@@ -499,10 +1159,11 @@ class _MainDashboardState extends State<MainDashboard> {
     try {
       await platform.invokeMethod('shareImageGeneral', {
         'imagePath': path,
-        'text': '🔥 *${_tituloAficheCtrl.text}* a solo *${_precioOfertaCtrl.text}* (${_subtituloAficheCtrl.text})',
+        'text':
+            '🔥 *${_tituloAficheCtrl.text}* a solo *${_precioOfertaCtrl.text}* (${_subtituloAficheCtrl.text})',
       });
     } catch (e) {
-      _mostrarSnack('Afiche guardado lista para campaña.');
+      _mostrarSnack('Afiche guardado listo para campaña.');
     }
   }
 
@@ -542,8 +1203,12 @@ class _MainDashboardState extends State<MainDashboard> {
             'Enviando a ${cliente.nombre} (${i + 1}/${destinatarios.length})...';
       });
 
-      final msg = DeepSeekOfflineEngine.generarMensajePersonalizado(
-          cliente, _promoCtrl.text, i);
+      final msg = DeepSeekConversationalAgent.generarMensajeWhatsApp(
+        cliente,
+        _promoCtrl.text,
+        i,
+        incluirCrossSell: _incluirCrossSellEnCampana,
+      );
 
       await _escribirWhatsApp(
         cliente,
@@ -572,8 +1237,72 @@ class _MainDashboardState extends State<MainDashboard> {
   }
 
   // ==========================================
-  // DESCARGADOR DE PESOS GGUF DEEPSEEK
+  // ENVÍO Y STREAMING CONVERSACIONAL DEEPSEEK
   // ==========================================
+  Future<void> _enviarMensajeADeepSeek(String texto) async {
+    final pregunta = texto.trim();
+    if (pregunta.isEmpty || _iaPensando) return;
+
+    HapticFeedback.selectionClick();
+    setState(() {
+      _historialChat.add(MensajeChatIA(esUsuario: true, texto: pregunta));
+      _chatIaCtrl.clear();
+      _iaPensando = true;
+      _textoStreaming = '';
+    });
+    _scrollChatAlFinal();
+
+    await Future.delayed(const Duration(milliseconds: 260));
+    final resultado = await DeepSeekConversationalAgent.conversar(
+      inputUsuario: pregunta,
+      cartera: _clientes,
+      apiKey: _apiKeyDeepSeek,
+      apiEndpoint: _apiEndpointDeepSeek,
+    );
+
+    final palabras = resultado.respuesta.split(' ');
+    final buffer = StringBuffer();
+    for (int i = 0; i < palabras.length; i++) {
+      if (!mounted) break;
+      buffer.write('${palabras[i]} ');
+      if (i % 3 == 0 || i == palabras.length - 1) {
+        setState(() {
+          _textoStreaming = buffer.toString();
+        });
+        _scrollChatAlFinal();
+        await Future.delayed(const Duration(milliseconds: 16));
+      }
+    }
+
+    setState(() {
+      _iaPensando = false;
+      _textoStreaming = '';
+      _historialChat.add(
+        MensajeChatIA(
+          esUsuario: false,
+          pensamiento: resultado.pensamiento,
+          texto: resultado.respuesta,
+          clienteAccion: resultado.clienteRelacionado,
+          promoSugerida: resultado.promoParaCampana,
+          categoriaSugerida: resultado.categoriaParaCampana,
+        ),
+      );
+    });
+    _scrollChatAlFinal();
+  }
+
+  void _scrollChatAlFinal() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_chatScrollCtrl.hasClients) {
+        _chatScrollCtrl.animateTo(
+          _chatScrollCtrl.position.maxScrollExtent,
+          duration: const Duration(milliseconds: 220),
+          curve: Curves.easeOutCubic,
+        );
+      }
+    });
+  }
+
   Future<void> _verificarModeloGGUF() async {
     final dir = await getApplicationDocumentsDirectory();
     final file = File('${dir.path}/deepseek_r1_1.5b_q4.gguf');
@@ -586,7 +1315,7 @@ class _MainDashboardState extends State<MainDashboard> {
     setState(() {
       _descargandoModelo = true;
       _progresoModelo = 0.01;
-      _estadoDescargaGGUF = 'Conectando con repositorio HuggingFace...';
+      _estadoDescargaGGUF = 'Conectando con HuggingFace...';
     });
     try {
       final url = Uri.parse(
@@ -606,19 +1335,19 @@ class _MainDashboardState extends State<MainDashboard> {
         setState(() {
           _progresoModelo = (recibido / totalBytes).clamp(0.0, 1.0);
           final mb = (recibido / (1024 * 1024)).toStringAsFixed(0);
-          _estadoDescargaGGUF = 'Descargando pesos GGUF: $mb MB...';
+          _estadoDescargaGGUF = 'Descargando GGUF: $mb MB...';
         });
       }
       await sink.close();
       setState(() {
         _descargandoModelo = false;
         _modeloGGUFInstalado = true;
-        _estadoDescargaGGUF = '✅ Modelo GGUF almacenado en memoria interna.';
+        _estadoDescargaGGUF = '✅ Modelo GGUF instalado en memoria.';
       });
-    } catch (e) {
+    } catch (_) {
       setState(() {
         _descargandoModelo = false;
-        _estadoDescargaGGUF = 'Modo Heurístico Offline Activo (Sin conexión).';
+        _estadoDescargaGGUF = 'Motor Conversacional Offline Activo.';
       });
     }
   }
@@ -634,39 +1363,67 @@ class _MainDashboardState extends State<MainDashboard> {
   Widget build(BuildContext context) {
     final urgentesCount = _clientes.where((c) => c.requiereAtencionUrgente).length;
 
+    final paginas = [
+      _buildTabClientes(),
+      _buildTabMonitoreo(),
+      _buildTabEstudioPromos(),
+      _buildTabCampanas(),
+      _buildTabDeepSeek(),
+    ];
+
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: const Color(0xFF1E293B),
+        backgroundColor: const Color(0xFF131C2E),
         elevation: 0,
-        title: const Row(
+        title: Row(
           children: [
-            Icon(Icons.storefront, color: Color(0xFF10B981)),
-            SizedBox(width: 8),
-            Text('CRM Mayorista Pro', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+            Container(
+              padding: const EdgeInsets.all(6),
+              decoration: BoxDecoration(
+                color: const Color(0xFF10B981).withOpacity(0.18),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: const Icon(Icons.auto_graph, color: Color(0xFF10B981), size: 20),
+            ),
+            const SizedBox(width: 10),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('CRM Mayorista Pro V4',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15.5)),
+                Text('${_clientes.length} clientes del Excel activos',
+                    style: const TextStyle(fontSize: 11, color: Colors.white60)),
+              ],
+            ),
           ],
         ),
         actions: [
           IconButton(
-            tooltip: 'Agregar Cliente',
+            tooltip: 'Sincronizar los 61 clientes del Excel',
+            icon: const Icon(Icons.sync, color: Color(0xFF38BDF8)),
+            onPressed: _restaurarCartera61Excel,
+          ),
+          IconButton(
+            tooltip: 'Nuevo Cliente',
             icon: const Icon(Icons.person_add_alt_1, color: Color(0xFF10B981)),
             onPressed: () => _mostrarModalEditarCliente(null),
           ),
         ],
       ),
-      body: IndexedStack(
-        index: _tabIndex,
-        children: [
-          _buildTabClientes(),
-          _buildTabMonitoreo(),
-          _buildTabEstudioPromos(),
-          _buildTabCampanas(),
-          _buildTabDeepSeek(),
-        ],
+      body: AnimatedSwitcher(
+        duration: const Duration(milliseconds: 240),
+        switchInCurve: Curves.easeOutCubic,
+        switchOutCurve: Curves.easeInCubic,
+        child: KeyedSubtree(
+          key: ValueKey<int>(_tabIndex),
+          child: paginas[_tabIndex],
+        ),
       ),
       bottomNavigationBar: NavigationBar(
-        backgroundColor: const Color(0xFF1E293B),
+        backgroundColor: const Color(0xFF131C2E),
         selectedIndex: _tabIndex,
         onDestinationSelected: (idx) {
+          HapticFeedback.selectionClick();
           if (idx == 3) _verificarAccesibilidad();
           setState(() => _tabIndex = idx);
         },
@@ -678,7 +1435,7 @@ class _MainDashboardState extends State<MainDashboard> {
               isLabelVisible: urgentesCount > 0,
               child: const Icon(Icons.radar),
             ),
-            label: 'Alertas',
+            label: 'Radar VIP',
           ),
           const NavigationDestination(icon: Icon(Icons.palette), label: 'Afiches'),
           const NavigationDestination(icon: Icon(Icons.rocket_launch), label: 'Campaña'),
@@ -689,7 +1446,7 @@ class _MainDashboardState extends State<MainDashboard> {
   }
 
   // ==========================================
-  // PESTAÑA 1: CARTERA Y KPI EJECUTIVOS
+  // PESTAÑA 1: CARTERA + CARRUSEL DE SUGERENCIAS IA
   // ==========================================
   Widget _buildTabClientes() {
     final categorias = [
@@ -704,43 +1461,77 @@ class _MainDashboardState extends State<MainDashboard> {
 
     final filtrados = _clientes.where((c) {
       final matchCat = _filtroCategoria == 'Todos' || c.categoria == _filtroCategoria;
-      final q = _busqueda.toLowerCase();
-      final matchTexto = c.nombre.toLowerCase().contains(q) ||
-          c.queCompra.toLowerCase().contains(q) ||
-          c.notas.toLowerCase().contains(q) ||
-          c.rut.toLowerCase().contains(q);
-      return matchCat && matchTexto;
+      final q = quitarTildes(_busqueda);
+      final blob = quitarTildes('${c.nombre} ${c.queCompra} ${c.notas} ${c.rut} ${c.telefono}');
+      return matchCat && blob.contains(q);
     }).toList();
 
     final volumenTotal = filtrados.fold<int>(0, (s, c) => s + c.montoPromedio);
+    final jugadasHoy = MotorSugerenciasPro.generarJugadasDelDia(_clientes);
 
     return Column(
       children: [
         Container(
-          padding: const EdgeInsets.fromLTRB(12, 10, 12, 6),
-          color: const Color(0xFF1E293B),
+          padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
+          decoration: const BoxDecoration(
+            color: Color(0xFF131C2E),
+            borderRadius: BorderRadius.vertical(bottom: Radius.circular(18)),
+          ),
           child: Column(
             children: [
               Row(
                 children: [
                   Expanded(
-                    child: _buildKpiMini('Clientes vista', '${filtrados.length}', Icons.groups, const Color(0xFF38BDF8)),
+                    child: _buildKpiMini('Clientes Activos', '${filtrados.length} / ${_clientes.length}',
+                        Icons.groups, const Color(0xFF38BDF8)),
                   ),
                   const SizedBox(width: 8),
                   Expanded(
-                    child: _buildKpiMini('Potencial Mensual', '\$${formatearPesos(volumenTotal)}', Icons.payments, const Color(0xFF10B981)),
+                    child: _buildKpiMini('Potencial Mensual', '\$${formatearPesos(volumenTotal)}',
+                        Icons.payments, const Color(0xFF10B981)),
+                  ),
+                  const SizedBox(width: 6),
+                  IconButton(
+                    tooltip: 'Mostrar/Ocultar Sugerencias IA',
+                    icon: Icon(
+                      _mostrarCarruselIA ? Icons.lightbulb : Icons.lightbulb_outline,
+                      color: Colors.amberAccent,
+                    ),
+                    onPressed: () => setState(() => _mostrarCarruselIA = !_mostrarCarruselIA),
                   ),
                 ],
+              ),
+              AnimatedSize(
+                duration: const Duration(milliseconds: 250),
+                curve: Curves.easeOutCubic,
+                child: _mostrarCarruselIA && jugadasHoy.isNotEmpty
+                    ? Container(
+                        height: 108,
+                        margin: const EdgeInsets.only(top: 8),
+                        child: ListView.builder(
+                          scrollDirection: Axis.horizontal,
+                          physics: const BouncingScrollPhysics(),
+                          itemCount: jugadasHoy.length,
+                          itemBuilder: (ctx, i) => _buildTarjetaJugadaIA(jugadasHoy[i]),
+                        ),
+                      )
+                    : const SizedBox.shrink(),
               ),
               const SizedBox(height: 8),
               TextField(
                 decoration: InputDecoration(
-                  hintText: 'Buscar cliente, RUT o producto (papel, queso, corta fecha)...',
-                  hintStyle: const TextStyle(fontSize: 13),
+                  hintText: 'Buscar cliente, comuna, RUT o producto (papel, queso, agua)...',
+                  hintStyle: const TextStyle(fontSize: 12),
                   prefixIcon: const Icon(Icons.search, size: 20),
+                  suffixIcon: _busqueda.isNotEmpty
+                      ? IconButton(
+                          icon: const Icon(Icons.clear, size: 18),
+                          onPressed: () => setState(() => _busqueda = ''),
+                        )
+                      : null,
                   contentPadding: const EdgeInsets.symmetric(vertical: 0, horizontal: 12),
                   filled: true,
-                  fillColor: const Color(0xFF0B1120),
+                  fillColor: const Color(0xFF070B12),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
                     borderSide: BorderSide.none,
@@ -750,9 +1541,10 @@ class _MainDashboardState extends State<MainDashboard> {
               ),
               const SizedBox(height: 8),
               SizedBox(
-                height: 38,
+                height: 34,
                 child: ListView.builder(
                   scrollDirection: Axis.horizontal,
+                  physics: const BouncingScrollPhysics(),
                   itemCount: categorias.length,
                   itemBuilder: (ctx, i) {
                     final cat = categorias[i];
@@ -760,7 +1552,7 @@ class _MainDashboardState extends State<MainDashboard> {
                     return Padding(
                       padding: const EdgeInsets.only(right: 6),
                       child: ChoiceChip(
-                        label: Text(cat, style: const TextStyle(fontSize: 12)),
+                        label: Text(cat, style: const TextStyle(fontSize: 11.5)),
                         selected: sel,
                         onSelected: (_) => setState(() => _filtroCategoria = cat),
                       ),
@@ -773,33 +1565,100 @@ class _MainDashboardState extends State<MainDashboard> {
         ),
         Expanded(
           child: ListView.builder(
-            padding: const EdgeInsets.only(top: 6, bottom: 20),
+            physics: const BouncingScrollPhysics(),
+            padding: const EdgeInsets.only(top: 8, bottom: 24),
             itemCount: filtrados.length,
-            itemBuilder: (ctx, i) => _buildTarjetaCliente(filtrados[i]),
+            itemBuilder: (ctx, i) => _buildTarjetaCliente(filtrados[i], i),
           ),
         ),
       ],
     );
   }
 
+  Widget _buildTarjetaJugadaIA(SugerenciaInteligente j) {
+    return Container(
+      width: 285,
+      margin: const EdgeInsets.only(right: 10),
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: const Color(0xFF070B12),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: j.color.withOpacity(0.5), width: 1.2),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(j.icono, color: j.color, size: 16),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  j.titulo,
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: j.color),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              SizedBox(
+                height: 24,
+                child: ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: j.color,
+                    foregroundColor: Colors.black,
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                  ),
+                  onPressed: () {
+                    if (j.clienteObjetivo != null) {
+                      _mostrarGuionIACliente(j.clienteObjetivo!);
+                    } else if (j.promoSugerida != null) {
+                      setState(() {
+                        _promoCtrl.text = j.promoSugerida!;
+                        if (j.categoriaCampana != null) _categoriaCampana = j.categoriaCampana!;
+                        _tabIndex = 3;
+                      });
+                      _mostrarSnack('Sugerencia IA cargada en la Campaña');
+                    }
+                  },
+                  child: Text(j.accionTexto,
+                      style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold)),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 5),
+          Expanded(
+            child: Text(
+              j.subtitulo,
+              style: const TextStyle(fontSize: 11, color: Colors.white70, height: 1.25),
+              maxLines: 3,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildKpiMini(String titulo, String valor, IconData icono, Color color) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
       decoration: BoxDecoration(
-        color: const Color(0xFF0B1120),
-        borderRadius: BorderRadius.circular(10),
+        color: const Color(0xFF070B12),
+        borderRadius: BorderRadius.circular(12),
         border: Border.all(color: color.withOpacity(0.3)),
       ),
       child: Row(
         children: [
-          Icon(icono, color: color, size: 20),
+          Icon(icono, color: color, size: 18),
           const SizedBox(width: 8),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(titulo, style: const TextStyle(fontSize: 11, color: Colors.white60)),
-                Text(valor, style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: color), overflow: TextOverflow.ellipsis),
+                Text(titulo, style: const TextStyle(fontSize: 10, color: Colors.white60)),
+                Text(valor,
+                    style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold, color: color),
+                    overflow: TextOverflow.ellipsis),
               ],
             ),
           ),
@@ -808,136 +1667,204 @@ class _MainDashboardState extends State<MainDashboard> {
     );
   }
 
-  Widget _buildTarjetaCliente(Cliente c) {
+  Widget _buildTarjetaCliente(Cliente c, int index) {
     final urgente = c.requiereAtencionUrgente;
-    return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
-      color: const Color(0xFF1E293B),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(14),
-        side: BorderSide(
-          color: urgente ? Colors.redAccent.withOpacity(0.6) : Colors.white10,
-          width: 1.2,
+    final colorBarra = urgente
+        ? Colors.redAccent
+        : (c.ratioUrgencia > 0.7 ? Colors.amberAccent : const Color(0xFF10B981));
+    final sugerenciaCrossSell = MotorSugerenciasPro.obtenerCrossSellParaCliente(c);
+
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0.95, end: 1.0),
+      duration: Duration(milliseconds: 160 + (index % 5) * 30),
+      curve: Curves.easeOutCubic,
+      builder: (context, scale, child) => Transform.scale(scale: scale, child: child),
+      child: Card(
+        margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+        color: const Color(0xFF131C2E),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(15),
+          side: BorderSide(
+            color: urgente ? Colors.redAccent.withOpacity(0.6) : Colors.white10,
+            width: 1.2,
+          ),
         ),
-      ),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(14),
-        onTap: () => _mostrarModalEditarCliente(c),
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(15),
+          onTap: () => _mostrarModalEditarCliente(c),
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    CircleAvatar(
+                      radius: 18,
+                      backgroundColor: colorBarra.withOpacity(0.18),
+                      child: Text(
+                        c.nombre.isNotEmpty ? c.nombre[0].toUpperCase() : 'C',
+                        style: TextStyle(color: colorBarra, fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            c.nombre,
+                            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            '${c.categoria}${c.rut.isNotEmpty ? " • RUT: ${c.rut}" : ""}',
+                            style: const TextStyle(color: Colors.white60, fontSize: 11),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF10B981).withOpacity(0.15),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        '\$${formatearPesos(c.montoPromedio)}',
+                        style: const TextStyle(
+                          color: Color(0xFF10B981),
+                          fontWeight: FontWeight.bold,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Text('🛒 Compra: ${c.queCompra}', style: const TextStyle(fontSize: 12.5)),
+                if (c.notas.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 3),
+                    child: Text('📌 ${c.notas}',
+                        style: const TextStyle(fontSize: 11.5, color: Colors.amberAccent)),
+                  ),
+                const SizedBox(height: 6),
+                // CÁPSULA DE SUGERENCIA IA DE VENTA CRUZADA
+                InkWell(
+                  onTap: () => _mostrarGuionIACliente(c),
+                  borderRadius: BorderRadius.circular(8),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF38BDF8).withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: const Color(0xFF38BDF8).withOpacity(0.3)),
+                    ),
+                    child: Row(
                       children: [
-                        Text(
-                          c.nombre,
-                          style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+                        const Icon(Icons.auto_awesome, size: 13, color: Color(0xFF38BDF8)),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            'Sugerencia IA: $sugerenciaCrossSell',
+                            style: const TextStyle(fontSize: 11, color: Color(0xFF38BDF8)),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
                         ),
-                        const SizedBox(height: 2),
-                        Text(
-                          '${c.categoria}${c.rut.isNotEmpty ? " • RUT: ${c.rut}" : ""}',
-                          style: const TextStyle(color: Colors.white60, fontSize: 11),
-                        ),
+                        const Text('Ver guion ➔',
+                            style: TextStyle(
+                                fontSize: 10.5,
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xFF38BDF8))),
                       ],
                     ),
                   ),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF10B981).withOpacity(0.15),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Text(
-                      '\$${formatearPesos(c.montoPromedio)}',
-                      style: const TextStyle(
-                        color: Color(0xFF10B981),
-                        fontWeight: FontWeight.bold,
-                        fontSize: 12,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              Text('🛒 Suele comprar: ${c.queCompra}', style: const TextStyle(fontSize: 13)),
-              if (c.notas.isNotEmpty)
-                Padding(
-                  padding: const EdgeInsets.only(top: 4),
-                  child: Text('📌 ${c.notas}',
-                      style: const TextStyle(fontSize: 12, color: Colors.amberAccent)),
                 ),
-              const SizedBox(height: 10),
-              Wrap(
-                spacing: 8,
-                runSpacing: 6,
-                alignment: WrapAlignment.spaceBetween,
-                crossAxisAlignment: WrapCrossAlignment.center,
-                children: [
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.schedule,
-                          size: 14, color: urgente ? Colors.redAccent : Colors.white54),
-                      const SizedBox(width: 4),
-                      Text(
-                        'Hace ${c.diasSinContacto}d (Ciclo ${c.cicloDias}d)',
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: urgente ? FontWeight.bold : FontWeight.normal,
-                          color: urgente ? Colors.redAccent : Colors.white54,
-                        ),
-                      ),
-                    ],
+                const SizedBox(height: 8),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(4),
+                  child: LinearProgressIndicator(
+                    value: (c.diasSinContacto / (c.cicloDias <= 0 ? 1 : c.cicloDias)).clamp(0.0, 1.0),
+                    minHeight: 4,
+                    backgroundColor: Colors.white10,
+                    valueColor: AlwaysStoppedAnimation<Color>(colorBarra),
                   ),
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      SizedBox(
-                        height: 34,
-                        child: ElevatedButton.icon(
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: c.prefiereLlamada
-                                ? Colors.amber.shade800
-                                : const Color(0xFF334155),
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(horizontal: 10),
+                ),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 6,
+                  alignment: WrapAlignment.spaceBetween,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    Text(
+                      'Hace ${c.diasSinContacto}d (Ciclo ${c.cicloDias}d)',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: urgente ? FontWeight.bold : FontWeight.normal,
+                        color: colorBarra,
+                      ),
+                    ),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (c.telefonoSecundario.isNotEmpty)
+                          Padding(
+                            padding: const EdgeInsets.only(right: 5),
+                            child: SizedBox(
+                              height: 31,
+                              child: OutlinedButton.icon(
+                                onPressed: () =>
+                                    _llamarCliente(c, telefonoEspecifico: c.telefonoSecundario),
+                                icon: const Icon(Icons.phone_forwarded, size: 13),
+                                label: const Text('Tel 2', style: TextStyle(fontSize: 10.5)),
+                              ),
+                            ),
                           ),
-                          onPressed: () => _llamarCliente(c),
-                          icon: const Icon(Icons.phone, size: 15),
-                          label: Text(
-                            c.prefiereLlamada ? 'LLAMAR' : 'Llamar',
-                            style: const TextStyle(fontSize: 12),
+                        SizedBox(
+                          height: 31,
+                          child: ElevatedButton.icon(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: c.prefiereLlamada
+                                  ? Colors.amber.shade800
+                                  : const Color(0xFF26334D),
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(horizontal: 10),
+                            ),
+                            onPressed: () => _llamarCliente(c),
+                            icon: const Icon(Icons.phone, size: 13.5),
+                            label: Text(
+                              c.prefiereLlamada ? 'LLAMAR' : 'Llamar',
+                              style: const TextStyle(fontSize: 11),
+                            ),
                           ),
                         ),
-                      ),
-                      const SizedBox(width: 8),
-                      SizedBox(
-                        height: 34,
-                        child: ElevatedButton.icon(
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF10B981),
-                            foregroundColor: Colors.black,
-                            padding: const EdgeInsets.symmetric(horizontal: 10),
-                          ),
-                          onPressed: () => _escribirWhatsApp(c),
-                          icon: const Icon(Icons.chat, size: 15),
-                          label: const Text(
-                            'WhatsApp',
-                            style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                        const SizedBox(width: 6),
+                        SizedBox(
+                          height: 31,
+                          child: ElevatedButton.icon(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFF10B981),
+                              foregroundColor: Colors.black,
+                              padding: const EdgeInsets.symmetric(horizontal: 10),
+                            ),
+                            onPressed: () => _escribirWhatsApp(c),
+                            icon: const Icon(Icons.chat, size: 13.5),
+                            label: const Text(
+                              'WhatsApp',
+                              style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+                            ),
                           ),
                         ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ],
+                      ],
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -950,8 +1877,10 @@ class _MainDashboardState extends State<MainDashboard> {
   Widget _buildTabMonitoreo() {
     final urgentes = _clientes.where((c) => c.requiereAtencionUrgente).toList()
       ..sort((a, b) => b.montoPromedio.compareTo(a.montoPromedio));
+    final montoRiesgo = urgentes.fold<int>(0, (s, c) => s + c.montoPromedio);
 
     return ListView(
+      physics: const BouncingScrollPhysics(),
       padding: const EdgeInsets.all(12),
       children: [
         Container(
@@ -964,28 +1893,29 @@ class _MainDashboardState extends State<MainDashboard> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Row(
+              Row(
                 children: [
-                  Icon(Icons.notifications_active, color: Colors.redAccent),
-                  SizedBox(width: 8),
+                  const Icon(Icons.notifications_active, color: Colors.redAccent),
+                  const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      'Clientes Pasados de Fecha (Ordenados por \$)',
-                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: Colors.redAccent),
+                      '${urgentes.length} Clientes por Contactar (\$${formatearPesos(montoRiesgo)})',
+                      style: const TextStyle(
+                          fontWeight: FontWeight.bold, fontSize: 15, color: Colors.redAccent),
                     ),
                   ),
                 ],
               ),
               const SizedBox(height: 6),
-              Text(
-                'Hay ${urgentes.length} clientes esperando llamada o mensaje. Al tocar "Llamar" o "WhatsApp", su contador vuelve a 0 días automáticamente.',
-                style: const TextStyle(fontSize: 12, color: Colors.white70),
+              const Text(
+                'Priorizados desde las Ballenas de \$3.000.000 hacia abajo. Toca "Sugerencia IA" en cada tarjeta para ver qué producto extra ofrecerles hoy.',
+                style: TextStyle(fontSize: 12, color: Colors.white70),
               ),
             ],
           ),
         ),
         const SizedBox(height: 10),
-        ...urgentes.map(_buildTarjetaCliente),
+        ...List.generate(urgentes.length, (i) => _buildTarjetaCliente(urgentes[i], i)),
       ],
     );
   }
@@ -1011,20 +1941,19 @@ class _MainDashboardState extends State<MainDashboard> {
     ];
 
     return ListView(
+      physics: const BouncingScrollPhysics(),
       padding: const EdgeInsets.all(14),
       children: [
         const Text(
-          'Diseñador de Afiches para WhatsApp',
+          'Estudio Creador de Afiches Mayoristas',
           style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: 4),
         const Text(
-          'Sube una foto del producto, ajusta el precio y envíalo directo en tus campañas.',
+          'Diseña tu promoción con foto real y úsala directo en tus campañas automáticas de WhatsApp.',
           style: TextStyle(fontSize: 12, color: Colors.white60),
         ),
         const SizedBox(height: 12),
-
-        // VISTA PREVIA DEL AFICHE (CAPTURABLE A PNG)
         Center(
           child: RepaintBoundary(
             key: _flyerKey,
@@ -1143,7 +2072,6 @@ class _MainDashboardState extends State<MainDashboard> {
             ),
           ),
         ),
-
         const SizedBox(height: 14),
         Row(
           children: [
@@ -1244,7 +2172,8 @@ class _MainDashboardState extends State<MainDashboard> {
                 ),
                 onPressed: _compartirAficheGeneral,
                 icon: const Icon(Icons.share),
-                label: const Text('Compartir Afiche', style: TextStyle(fontWeight: FontWeight.bold)),
+                label:
+                    const Text('Compartir Afiche', style: TextStyle(fontWeight: FontWeight.bold)),
               ),
             ),
             const SizedBox(width: 8),
@@ -1278,6 +2207,7 @@ class _MainDashboardState extends State<MainDashboard> {
   // ==========================================
   Widget _buildTabCampanas() {
     return ListView(
+      physics: const BouncingScrollPhysics(),
       padding: const EdgeInsets.all(14),
       children: [
         Card(
@@ -1290,30 +2220,42 @@ class _MainDashboardState extends State<MainDashboard> {
             ),
             title: Text(
               _accesibilidadActiva
-                  ? 'Auto-Click Accessibility ACTIVO'
-                  : 'Permiso de Accesibilidad Requerido',
+                  ? 'AccessibilityService ACTIVO'
+                  : 'Permiso de Accesibilidad Desactivado',
               style: const TextStyle(fontWeight: FontWeight.bold),
             ),
             subtitle: Text(_accesibilidadActiva
-                ? 'Tu teléfono presionará "Enviar" en WhatsApp solo y volverá al CRM.'
-                : 'Toca el botón "Activar" y enciende "CRM Mayorista Auto-WhatsApp".'),
+                ? 'Tu Android presionará "Enviar" en WhatsApp automáticamente y volverá al CRM.'
+                : 'Toca "Activar" y habilita "CRM Mayorista Auto-WhatsApp" en Accesibilidad.'),
             trailing: ElevatedButton(
               onPressed: _abrirAjustesAccesibilidad,
               child: const Text('Activar'),
             ),
           ),
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 10),
         SwitchListTile(
-          tileColor: const Color(0xFF1E293B),
+          tileColor: const Color(0xFF131C2E),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          title: const Text('Adjuntar Afiche Promocional (.PNG)', style: TextStyle(fontWeight: FontWeight.bold)),
-          subtitle: const Text('Envía la imagen creada en la pestaña Afiches junto con el texto personalizado'),
+          title: const Text('Adjuntar Afiche Promocional (.PNG)',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+          subtitle: const Text('Envía el afiche visual junto con el texto personalizado'),
           value: _adjuntarAficheEnCampana,
           onChanged: (v) => setState(() => _adjuntarAficheEnCampana = v),
         ),
+        const SizedBox(height: 8),
+        SwitchListTile(
+          tileColor: const Color(0xFF131C2E),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          title: const Text('Incluir Sugerencia de Venta Cruzada IA',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+          subtitle: const Text(
+              'Agrega una línea al mensaje recomendando el producto complementario de cada cliente'),
+          value: _incluirCrossSellEnCampana,
+          onChanged: (v) => setState(() => _incluirCrossSellEnCampana = v),
+        ),
         const SizedBox(height: 12),
-        const Text('Texto de la Oferta (DeepSeek lo adaptará a cada cliente):',
+        const Text('Texto de la Oferta (DeepSeek adaptará cada mensaje):',
             style: TextStyle(fontWeight: FontWeight.bold)),
         const SizedBox(height: 6),
         TextField(
@@ -1321,18 +2263,19 @@ class _MainDashboardState extends State<MainDashboard> {
           maxLines: 3,
           decoration: InputDecoration(
             filled: true,
-            fillColor: const Color(0xFF1E293B),
+            fillColor: const Color(0xFF131C2E),
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
           ),
         ),
         const SizedBox(height: 12),
-        const Text('Categoría de Clientes a Disparar:', style: TextStyle(fontWeight: FontWeight.bold)),
+        const Text('Categoría de Clientes a Disparar:',
+            style: TextStyle(fontWeight: FontWeight.bold)),
         const SizedBox(height: 6),
         DropdownButtonFormField<String>(
           value: _categoriaCampana,
           decoration: InputDecoration(
             filled: true,
-            fillColor: const Color(0xFF1E293B),
+            fillColor: const Color(0xFF131C2E),
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
           ),
           items: [
@@ -1349,19 +2292,21 @@ class _MainDashboardState extends State<MainDashboard> {
         Container(
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
-            color: const Color(0xFF1E293B),
+            color: const Color(0xFF131C2E),
             borderRadius: BorderRadius.circular(14),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Estado: $_estadoCampanaTexto', style: const TextStyle(fontWeight: FontWeight.bold)),
+              Text('Estado: $_estadoCampanaTexto',
+                  style: const TextStyle(fontWeight: FontWeight.bold)),
               const SizedBox(height: 12),
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton.icon(
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: _campanaCorriendo ? Colors.redAccent : const Color(0xFF10B981),
+                    backgroundColor:
+                        _campanaCorriendo ? Colors.redAccent : const Color(0xFF10B981),
                     foregroundColor: Colors.black,
                     padding: const EdgeInsets.symmetric(vertical: 14),
                   ),
@@ -1374,7 +2319,7 @@ class _MainDashboardState extends State<MainDashboard> {
                   },
                   icon: Icon(_campanaCorriendo ? Icons.stop_circle : Icons.send),
                   label: Text(
-                    _campanaCorriendo ? 'DETENER CAMPAÑA AHORA' : 'INICIAR CAMPAÑA AUTOMÁTICA',
+                    _campanaCorriendo ? 'DETENER CAMPAÑA AHORA' : 'LANZAR CAMPAÑA AUTOMÁTICA',
                     style: const TextStyle(fontWeight: FontWeight.bold),
                   ),
                 ),
@@ -1387,190 +2332,357 @@ class _MainDashboardState extends State<MainDashboard> {
   }
 
   // ==========================================
-  // PESTAÑA 5: DEEPSEEK IA OFFLINE (CHAT + PARSER)
+  // PESTAÑA 5: DEEPSEEK IA CONVERSACIONAL V4
   // ==========================================
   Widget _buildTabDeepSeek() {
-    return ListView(
-      padding: const EdgeInsets.all(12),
+    return Column(
       children: [
-        // TARJETA 1: ASISTENTE INTERACTIVO OFFLINE
-        Card(
-          color: const Color(0xFF1E293B),
-          child: Padding(
-            padding: const EdgeInsets.all(12),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Row(
-                  children: [
-                    Icon(Icons.psychology, color: Color(0xFF10B981)),
-                    SizedBox(width: 8),
-                    Text('Consultor DeepSeek Offline (Sin Internet)',
-                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
-                  ],
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          color: const Color(0xFF131C2E),
+          child: Row(
+            children: [
+              const Icon(Icons.psychology, color: Color(0xFF10B981)),
+              const SizedBox(width: 8),
+              const Expanded(
+                child: Text(
+                  'DeepSeek-R1 V4 (Conversacional + Venta Cruzada)',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
                 ),
-                const SizedBox(height: 8),
-                Wrap(
-                  spacing: 6,
-                  runSpacing: 6,
-                  children: [
-                    ActionChip(
-                      label: const Text('¿Quién compra corta fecha?', style: TextStyle(fontSize: 11)),
-                      onPressed: () => _enviarPreguntaIA('¿Quién compra corta fecha?'),
-                    ),
-                    ActionChip(
-                      label: const Text('Top Papel y Aseo', style: TextStyle(fontSize: 11)),
-                      onPressed: () => _enviarPreguntaIA('¿Quiénes compran papel y aseo?'),
-                    ),
-                    ActionChip(
-                      label: const Text('¿A quién llamar hoy?', style: TextStyle(fontSize: 11)),
-                      onPressed: () => _enviarPreguntaIA('¿A quién debo llamar urgente hoy?'),
-                    ),
-                    ActionChip(
-                      label: const Text('Queso / Bebidas', style: TextStyle(fontSize: 11)),
-                      onPressed: () => _enviarPreguntaIA('queso'),
-                    ),
-                  ],
-                ),
-                const Divider(height: 16),
-                Container(
-                  constraints: const BoxConstraints(maxHeight: 230),
-                  child: ListView.builder(
-                    shrinkWrap: true,
-                    itemCount: _mensajesIA.length,
-                    itemBuilder: (ctx, i) {
-                      final m = _mensajesIA[i];
-                      final esIa = m['rol'] == 'ia';
-                      return Container(
-                        margin: const EdgeInsets.symmetric(vertical: 4),
-                        padding: const EdgeInsets.all(10),
-                        decoration: BoxDecoration(
-                          color: esIa ? const Color(0xFF0B1120) : const Color(0xFF10B981).withOpacity(0.2),
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: Text(m['texto'] ?? '', style: const TextStyle(fontSize: 13, height: 1.35)),
-                      );
-                    },
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    Expanded(
-                      child: TextField(
-                        controller: _chatIaCtrl,
-                        decoration: InputDecoration(
-                          hintText: 'Pregúntale a tu base de datos offline...',
-                          filled: true,
-                          fillColor: const Color(0xFF0B1120),
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
-                        ),
-                        onSubmitted: _enviarPreguntaIA,
-                      ),
-                    ),
-                    const SizedBox(width: 6),
-                    IconButton.filled(
-                      onPressed: () => _enviarPreguntaIA(_chatIaCtrl.text),
-                      icon: const Icon(Icons.send),
-                    ),
-                  ],
-                ),
-              ],
-            ),
+              ),
+              TextButton.icon(
+                onPressed: _mostrarModalHerramientasIA,
+                icon: const Icon(Icons.tune, size: 16),
+                label: const Text('Notas / GGUF', style: TextStyle(fontSize: 12)),
+              ),
+            ],
           ),
         ),
-        const SizedBox(height: 10),
-
-        // TARJETA 2: ESCÁNER DE NOTAS CAÓTICAS A CLIENTE
-        Card(
-          color: const Color(0xFF1E293B),
-          child: Padding(
+        SizedBox(
+          height: 38,
+          child: ListView(
+            scrollDirection: Axis.horizontal,
+            physics: const BouncingScrollPhysics(),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            children: [
+              _chipSugerencia('¡Hola DeepSeek!'),
+              _chipSugerencia('Dame una estrategia para vender más hoy'),
+              _chipSugerencia('¿A quién debo llamar urgente?'),
+              _chipSugerencia('¿Quién es Jesús Peña?'),
+              _chipSugerencia('Ruta Melipilla'),
+              _chipSugerencia('¿A quién le ofrezco corta fecha?'),
+            ],
+          ),
+        ),
+        Expanded(
+          child: ListView.builder(
+            controller: _chatScrollCtrl,
+            physics: const BouncingScrollPhysics(),
             padding: const EdgeInsets.all(12),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text('🪄 Convertir Nota Rápida en Ficha de Cliente',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
-                const SizedBox(height: 4),
-                const Text(
-                  'Pega un texto desordenado (ej: "Pedro Bodega 988776655 compra papel higiénico promedio 800.000 llamar") y la IA creará la ficha clasificada:',
-                  style: TextStyle(fontSize: 12, color: Colors.white60),
-                ),
-                const SizedBox(height: 8),
-                TextField(
-                  controller: _notaCaoticaCtrl,
-                  maxLines: 2,
+            itemCount: _historialChat.length + (_iaPensando ? 1 : 0),
+            itemBuilder: (ctx, i) {
+              if (i == _historialChat.length && _iaPensando) {
+                return _buildBurbujaStreaming();
+              }
+              return _buildBurbujaChat(_historialChat[i]);
+            },
+          ),
+        ),
+        Container(
+          padding: const EdgeInsets.fromLTRB(10, 8, 10, 10),
+          decoration: const BoxDecoration(
+            color: Color(0xFF131C2E),
+            border: Border(top: BorderSide(color: Colors.white10)),
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: _chatIaCtrl,
                   decoration: InputDecoration(
-                    hintText: 'Pega aquí la nota rápida...',
+                    hintText: 'Háblale natural a DeepSeek (ej: Hola, ¿qué me sugieres hoy?)...',
+                    hintStyle: const TextStyle(fontSize: 13),
                     filled: true,
-                    fillColor: const Color(0xFF0B1120),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                    fillColor: const Color(0xFF070B12),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(20),
+                      borderSide: BorderSide.none,
+                    ),
                   ),
+                  onSubmitted: _enviarMensajeADeepSeek,
                 ),
-                const SizedBox(height: 8),
-                ElevatedButton.icon(
-                  onPressed: () {
-                    if (_notaCaoticaCtrl.text.trim().isEmpty) return;
-                    final nuevo = DeepSeekOfflineEngine.extraerClienteDesdeNotaCaotica(_notaCaoticaCtrl.text);
-                    setState(() {
-                      _clientes.insert(0, nuevo);
-                      _notaCaoticaCtrl.clear();
-                    });
-                    _guardarDatos();
-                    _mostrarSnack('Cliente "${nuevo.nombre}" clasificado en ${nuevo.categoria}');
-                  },
-                  icon: const Icon(Icons.auto_fix_high),
-                  label: const Text('Analizar Nota y Guardar Cliente'),
-                ),
-              ],
-            ),
-          ),
-        ),
-        const SizedBox(height: 10),
-
-        // TARJETA 3: GESTOR GGUF DEEPSEEK-R1
-        Card(
-          color: const Color(0xFF1E293B),
-          child: Padding(
-            padding: const EdgeInsets.all(12),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text('Pesos Locales DeepSeek-R1-Distill-1.5B (GGUF)',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                const SizedBox(height: 6),
-                if (_estadoDescargaGGUF.isNotEmpty)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 6),
-                    child: Text(_estadoDescargaGGUF, style: const TextStyle(fontSize: 12, color: Colors.amberAccent)),
-                  ),
-                if (_descargandoModelo)
-                  LinearProgressIndicator(value: _progresoModelo)
-                else
-                  ElevatedButton.icon(
-                    onPressed: _modeloGGUFInstalado ? null : _descargarModeloDeepSeekGGUF,
-                    icon: Icon(_modeloGGUFInstalado ? Icons.check_circle : Icons.download),
-                    label: Text(_modeloGGUFInstalado
-                        ? 'Pesos DeepSeek GGUF Instalados'
-                        : 'Descargar Modelo GGUF en el Teléfono (Opcional)'),
-                  ),
-              ],
-            ),
+              ),
+              const SizedBox(width: 8),
+              FloatingActionButton.small(
+                backgroundColor: const Color(0xFF10B981),
+                foregroundColor: Colors.black,
+                onPressed: () => _enviarMensajeADeepSeek(_chatIaCtrl.text),
+                child: const Icon(Icons.send),
+              ),
+            ],
           ),
         ),
       ],
     );
   }
 
-  void _enviarPreguntaIA(String pregunta) {
-    if (pregunta.trim().isEmpty) return;
-    final resp = DeepSeekOfflineEngine.responderConsultaOffline(pregunta, _clientes);
-    setState(() {
-      _mensajesIA.add({'rol': 'user', 'texto': 'Tú: $pregunta'});
-      _mensajesIA.add({'rol': 'ia', 'texto': resp});
-      _chatIaCtrl.clear();
-    });
+  Widget _chipSugerencia(String texto) {
+    return Padding(
+      padding: const EdgeInsets.only(right: 6),
+      child: ActionChip(
+        label: Text(texto, style: const TextStyle(fontSize: 11)),
+        onPressed: () => _enviarMensajeADeepSeek(texto),
+      ),
+    );
+  }
+
+  Widget _buildBurbujaStreaming() {
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Container(
+        margin: const EdgeInsets.symmetric(vertical: 6),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: const Color(0xFF131C2E),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: const Color(0xFF10B981).withOpacity(0.4)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                SizedBox(
+                  width: 12,
+                  height: 12,
+                  child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF10B981)),
+                ),
+                SizedBox(width: 8),
+                Text('DeepSeek-R1 razonando...',
+                    style: TextStyle(fontSize: 11, color: Color(0xFF10B981))),
+              ],
+            ),
+            if (_textoStreaming.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Text(_textoStreaming, style: const TextStyle(fontSize: 13.5, height: 1.4)),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBurbujaChat(MensajeChatIA m) {
+    return Align(
+      alignment: m.esUsuario ? Alignment.centerRight : Alignment.centerLeft,
+      child: Container(
+        constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.88),
+        margin: const EdgeInsets.symmetric(vertical: 5),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: m.esUsuario
+              ? const Color(0xFF10B981).withOpacity(0.22)
+              : const Color(0xFF131C2E),
+          borderRadius: BorderRadius.circular(15),
+          border: Border.all(
+            color: m.esUsuario ? const Color(0xFF10B981).withOpacity(0.5) : Colors.white10,
+          ),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (!m.esUsuario && m.pensamiento.isNotEmpty)
+              Container(
+                margin: const EdgeInsets.only(bottom: 8),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+                decoration: BoxDecoration(
+                  color: Colors.black26,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  '🧠 ${m.pensamiento}',
+                  style: const TextStyle(
+                      fontSize: 11, color: Colors.white54, fontStyle: FontStyle.italic),
+                ),
+              ),
+            Text(m.texto, style: const TextStyle(fontSize: 13.5, height: 1.4)),
+            if (!m.esUsuario && (m.clienteAccion != null || m.promoSugerida != null)) ...[
+              const SizedBox(height: 10),
+              Wrap(
+                spacing: 8,
+                runSpacing: 6,
+                children: [
+                  if (m.clienteAccion != null) ...[
+                    SizedBox(
+                      height: 30,
+                      child: ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF26334D),
+                          foregroundColor: Colors.white,
+                        ),
+                        onPressed: () => _llamarCliente(m.clienteAccion!),
+                        icon: const Icon(Icons.phone, size: 14),
+                        label: Text('Llamar a ${m.clienteAccion!.nombre.split(" ").first}',
+                            style: const TextStyle(fontSize: 11)),
+                      ),
+                    ),
+                    SizedBox(
+                      height: 30,
+                      child: ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF10B981),
+                          foregroundColor: Colors.black,
+                        ),
+                        onPressed: () => _escribirWhatsApp(m.clienteAccion!),
+                        icon: const Icon(Icons.chat, size: 14),
+                        label: const Text('WhatsApp + Cross-Sell',
+                            style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                      ),
+                    ),
+                  ],
+                  if (m.promoSugerida != null)
+                    SizedBox(
+                      height: 30,
+                      child: ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF38BDF8),
+                          foregroundColor: Colors.black,
+                        ),
+                        onPressed: () {
+                          setState(() {
+                            _promoCtrl.text = m.promoSugerida!;
+                            if (m.categoriaSugerida != null) {
+                              _categoriaCampana = m.categoriaSugerida!;
+                            }
+                            _tabIndex = 3;
+                          });
+                          _mostrarSnack('Estrategia cargada en Campaña');
+                        },
+                        icon: const Icon(Icons.rocket_launch, size: 14),
+                        label: const Text('Lanzar en Campaña',
+                            style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                      ),
+                    ),
+                ],
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ==========================================
+  // MODAL DE HERRAMIENTAS IA (NOTAS + GGUF + API)
+  // ==========================================
+  void _mostrarModalHerramientasIA() {
+    final apiCtrl = TextEditingController(text: _apiKeyDeepSeek);
+    final endpointCtrl = TextEditingController(text: _apiEndpointDeepSeek);
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: const Color(0xFF131C2E),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => Padding(
+        padding: EdgeInsets.only(
+          left: 16,
+          right: 16,
+          top: 16,
+          bottom: MediaQuery.of(ctx).viewInsets.bottom + 16,
+        ),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('🪄 Escáner Inteligente de Notas Sueltas',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+              const SizedBox(height: 6),
+              TextField(
+                controller: _notaCaoticaCtrl,
+                maxLines: 2,
+                decoration: const InputDecoration(
+                  hintText: 'Ej: "Pedro Bodega 988776655 compra pallet papel prom 900.000 llamar"',
+                ),
+              ),
+              const SizedBox(height: 8),
+              ElevatedButton.icon(
+                onPressed: () {
+                  if (_notaCaoticaCtrl.text.trim().isEmpty) return;
+                  final nuevo = DeepSeekConversationalAgent.extraerClienteDesdeNotaCaotica(
+                      _notaCaoticaCtrl.text);
+                  setState(() {
+                    _clientes.insert(0, nuevo);
+                    _notaCaoticaCtrl.clear();
+                  });
+                  _guardarDatos();
+                  Navigator.pop(ctx);
+                  _mostrarSnack('Cliente "${nuevo.nombre}" agregado a ${nuevo.categoria}');
+                },
+                icon: const Icon(Icons.auto_fix_high),
+                label: const Text('Convertir Nota en Ficha de Cliente'),
+              ),
+              const Divider(height: 24),
+              const Text('⚙️ Conexión Opcional API / Localhost (DeepSeek / Ollama)',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+              TextField(
+                controller: endpointCtrl,
+                decoration: const InputDecoration(labelText: 'Endpoint URL'),
+              ),
+              TextField(
+                controller: apiCtrl,
+                decoration: const InputDecoration(
+                    labelText: 'API Key (Opcional - vacío usa motor local offline)'),
+              ),
+              if (_estadoDescargaGGUF.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(top: 6),
+                  child: Text(_estadoDescargaGGUF,
+                      style: const TextStyle(fontSize: 11, color: Colors.amberAccent)),
+                ),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  ElevatedButton.icon(
+                    onPressed: _modeloGGUFInstalado
+                        ? null
+                        : () {
+                            Navigator.pop(ctx);
+                            _descargarModeloDeepSeekGGUF();
+                          },
+                    icon: Icon(_modeloGGUFInstalado ? Icons.check_circle : Icons.download),
+                    label: Text(_modeloGGUFInstalado ? 'GGUF Instalado' : 'Descargar GGUF 1.5B'),
+                  ),
+                  const Spacer(),
+                  ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF10B981),
+                      foregroundColor: Colors.black,
+                    ),
+                    onPressed: () async {
+                      final prefs = await SharedPreferences.getInstance();
+                      await prefs.setString('deepseek_api_key', apiCtrl.text.trim());
+                      await prefs.setString('deepseek_endpoint', endpointCtrl.text.trim());
+                      setState(() {
+                        _apiKeyDeepSeek = apiCtrl.text.trim();
+                        _apiEndpointDeepSeek = endpointCtrl.text.trim();
+                      });
+                      if (mounted) Navigator.pop(ctx);
+                    },
+                    child: const Text('Guardar'),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   // ==========================================
@@ -1580,6 +2692,7 @@ class _MainDashboardState extends State<MainDashboard> {
     final nombreCtrl = TextEditingController(text: existente?.nombre ?? '');
     final rutCtrl = TextEditingController(text: existente?.rut ?? '');
     final telCtrl = TextEditingController(text: existente?.telefono ?? '+569');
+    final tel2Ctrl = TextEditingController(text: existente?.telefonoSecundario ?? '');
     final compraCtrl = TextEditingController(text: existente?.queCompra ?? '');
     final montoCtrl = TextEditingController(text: (existente?.montoPromedio ?? 500000).toString());
     final notasCtrl = TextEditingController(text: existente?.notas ?? '');
@@ -1590,7 +2703,7 @@ class _MainDashboardState extends State<MainDashboard> {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: const Color(0xFF1E293B),
+      backgroundColor: const Color(0xFF131C2E),
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -1612,14 +2725,25 @@ class _MainDashboardState extends State<MainDashboard> {
                   style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(height: 10),
-                TextField(controller: nombreCtrl, decoration: const InputDecoration(labelText: 'Nombre / Razón Social')),
+                TextField(
+                    controller: nombreCtrl,
+                    decoration: const InputDecoration(labelText: 'Nombre / Razón Social')),
                 Row(
                   children: [
-                    Expanded(child: TextField(controller: rutCtrl, decoration: const InputDecoration(labelText: 'RUT'))),
+                    Expanded(
+                        child: TextField(
+                            controller: rutCtrl, decoration: const InputDecoration(labelText: 'RUT'))),
                     const SizedBox(width: 10),
-                    Expanded(child: TextField(controller: telCtrl, decoration: const InputDecoration(labelText: 'Teléfono (+569...)'))),
+                    Expanded(
+                        child: TextField(
+                            controller: telCtrl,
+                            decoration: const InputDecoration(labelText: 'Teléfono 1 (+569...)'))),
                   ],
                 ),
+                TextField(
+                    controller: tel2Ctrl,
+                    decoration:
+                        const InputDecoration(labelText: 'Teléfono 2 / Secundario (Opcional)')),
                 const SizedBox(height: 8),
                 DropdownButtonFormField<String>(
                   value: cat,
@@ -1634,7 +2758,9 @@ class _MainDashboardState extends State<MainDashboard> {
                   ].map((c) => DropdownMenuItem(value: c, child: Text(c))).toList(),
                   onChanged: (v) => setModalState(() => cat = v ?? cat),
                 ),
-                TextField(controller: compraCtrl, decoration: const InputDecoration(labelText: '¿Qué suele comprar?')),
+                TextField(
+                    controller: compraCtrl,
+                    decoration: const InputDecoration(labelText: '¿Qué suele comprar?')),
                 Row(
                   children: [
                     Expanded(
@@ -1654,7 +2780,9 @@ class _MainDashboardState extends State<MainDashboard> {
                     ),
                   ],
                 ),
-                TextField(controller: notasCtrl, decoration: const InputDecoration(labelText: 'Notas / Recordatorios')),
+                TextField(
+                    controller: notasCtrl,
+                    decoration: const InputDecoration(labelText: 'Notas / Observaciones')),
                 SwitchListTile(
                   contentPadding: EdgeInsets.zero,
                   title: const Text('Prefiere llamada telefónica antes que WhatsApp'),
@@ -1691,6 +2819,7 @@ class _MainDashboardState extends State<MainDashboard> {
                                 nombre: nombreCtrl.text.trim(),
                                 rut: rutCtrl.text.trim(),
                                 telefono: telCtrl.text.trim(),
+                                telefonoSecundario: tel2Ctrl.text.trim(),
                                 categoria: cat,
                                 queCompra: compraCtrl.text.trim(),
                                 montoPromedio: int.tryParse(montoCtrl.text) ?? 500000,
@@ -1703,9 +2832,11 @@ class _MainDashboardState extends State<MainDashboard> {
                             existente.nombre = nombreCtrl.text.trim();
                             existente.rut = rutCtrl.text.trim();
                             existente.telefono = telCtrl.text.trim();
+                            existente.telefonoSecundario = tel2Ctrl.text.trim();
                             existente.categoria = cat;
                             existente.queCompra = compraCtrl.text.trim();
-                            existente.montoPromedio = int.tryParse(montoCtrl.text) ?? existente.montoPromedio;
+                            existente.montoPromedio =
+                                int.tryParse(montoCtrl.text) ?? existente.montoPromedio;
                             existente.notas = notasCtrl.text.trim();
                             existente.prefiereLlamada = prefLlamada;
                             existente.cicloDias = int.tryParse(cicloCtrl.text) ?? 10;
@@ -1714,7 +2845,8 @@ class _MainDashboardState extends State<MainDashboard> {
                         _guardarDatos();
                         Navigator.pop(ctx);
                       },
-                      child: const Text('Guardar Cambios', style: TextStyle(fontWeight: FontWeight.bold)),
+                      child: const Text('Guardar Cambios',
+                          style: TextStyle(fontWeight: FontWeight.bold)),
                     ),
                   ],
                 ),
